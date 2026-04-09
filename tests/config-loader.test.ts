@@ -5,9 +5,9 @@ import {
   getPathAction,
   getCommandConfig,
   loadConfig,
-} from "../src/config-loader.ts";
-import { createEmptyConfig } from "../src/config-types.ts";
-import type { SanityConfig, CommandConfig } from "../src/config-types.ts";
+} from "../src/config-loader.js";
+import { createEmptyConfig } from "../src/config-types.js";
+import type { SanityConfig, CommandConfig } from "../src/config-types.js";
 
 describe("config-loader", () => {
   describe("mergeConfigs", () => {

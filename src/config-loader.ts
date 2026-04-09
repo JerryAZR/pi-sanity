@@ -16,8 +16,8 @@ import type {
   PreCheck,
   PositionalConfig,
   SanityConfig,
-} from "./config-types.ts";
-import { createEmptyConfig } from "./config-types.ts";
+} from "./config-types.js";
+import { createEmptyConfig } from "./config-types.js";
 
 /**
  * Load and merge all config files from the hierarchy:
@@ -161,9 +161,8 @@ function mergeCommandConfig(
   target: CommandConfig | undefined,
   source: CommandConfig,
 ): CommandConfig {
-  const base = target ?? {
+  const base: CommandConfig = target ?? {
     default_action: source.default_action,
-    overrides: [],
   };
 
   return {
