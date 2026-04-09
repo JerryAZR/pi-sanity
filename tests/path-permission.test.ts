@@ -1,0 +1,242 @@
+import { describe, it } from "node:test";
+import assert from "node:assert";
+import * as path from "node:path";
+import * as os from "node:os";
+import {
+  expandPattern,
+  matchesGlob,
+  checkPathPermission,
+  checkRead,
+  checkWrite,
+  checkDelete,
+  getDefaultContext,
+  type PathContext,
+} from "../src/path-permission.js";
+import { createEmptyConfig } from "../src/config-types.js";
+import type { SanityConfig, PermissionSection } from "../src/config-types.js";
+
+describe("path-permission", () => {
+  const homeDir = os.homedir();
+  const tmpDir = os.tmpdir();
+  const testContext: PathContext = {
+    cwd: "/project",
+    home: "/home/user",
+    repo: "/project",
+    tmpdir: "/tmp",
+  };
+
+  describe("expandPattern", () => {
+    it("should expand {{HOME}}", () => {
+      const result = expandPattern("{{HOME}}/.ssh", testContext);
+      assert.strictEqual(result, "/home/user/.ssh");
+    });
+
+    it("should expand {{CWD}}", () => {
+      const result = expandPattern("{{CWD}}/file.txt", testContext);
+      assert.strictEqual(result, "/project/file.txt");
+    });
+
+    it("should expand {{REPO}}", () => {
+      const result = expandPattern("{{REPO}}/src", testContext);
+      assert.strictEqual(result, "/project/src");
+    });
+
+    it("should expand {{TMPDIR}}", () => {
+      const result = expandPattern("{{TMPDIR}}/cache", testContext);
+      assert.strictEqual(result, "/tmp/cache");
+    });
+
+    it("should expand $ENV_VAR", () => {
+      process.env.TEST_VAR = "/test/path";
+      const result = expandPattern("$TEST_VAR/file", testContext);
+      assert.strictEqual(result, "/test/path/file");
+      delete process.env.TEST_VAR;
+    });
+
+    it("should expand multiple variables", () => {
+      const result = expandPattern("{{HOME}}/{{CWD}}/file", testContext);
+      assert.strictEqual(result, "/home/user/project/file");
+    });
+
+    it("should leave unknown variables unchanged", () => {
+      const result = expandPattern("{{UNKNOWN}}/file", testContext);
+      assert.strictEqual(result, "{{UNKNOWN}}/file");
+    });
+
+    it("should handle patterns without variables", () => {
+      const result = expandPattern("/etc/passwd", testContext);
+      assert.strictEqual(result, "/etc/passwd");
+    });
+  });
+
+  describe("matchesGlob", () => {
+    it("should match exact path", () => {
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.txt"), true);
+    });
+
+    it("should match with * wildcard", () => {
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/*.txt"), true);
+      assert.strictEqual(matchesGlob("/home/user/file.log", "/home/user/*.txt"), false);
+    });
+
+    it("should match with ** wildcard", () => {
+      assert.strictEqual(matchesGlob("/home/user/a/b/c/file.txt", "/home/user/**/*.txt"), true);
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/**/*.txt"), true);
+    });
+
+    it("should match with ? wildcard", () => {
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.t?t"), true);
+      assert.strictEqual(matchesGlob("/home/user/file.txxt", "/home/user/file.t?t"), false);
+    });
+
+    it("should match hidden files with .*", () => {
+      assert.strictEqual(matchesGlob("/home/user/.bashrc", "/home/user/.*"), true);
+      assert.strictEqual(matchesGlob("/home/user/documents", "/home/user/.*"), false);
+    });
+
+    it("should handle Windows-style paths", () => {
+      assert.strictEqual(matchesGlob("C:\\Users\\file.txt", "C:/Users/*.txt"), true);
+    });
+  });
+
+  describe("checkPathPermission", () => {
+    it("should return default action when no overrides match", () => {
+      const permission: PermissionSection = {
+        default: "ask",
+        reason: "Default reason",
+        overrides: [],
+      };
+
+      const result = checkPathPermission("/some/path", permission, testContext);
+      assert.strictEqual(result.action, "ask");
+      assert.strictEqual(result.reason, "Default reason");
+    });
+
+    it("should return matching override action", () => {
+      const permission: PermissionSection = {
+        default: "allow",
+        overrides: [
+          { path: ["/secret/**"], action: "deny", reason: "Secret area" },
+        ],
+      };
+
+      const result = checkPathPermission("/secret/file.txt", permission, testContext);
+      assert.strictEqual(result.action, "deny");
+      assert.strictEqual(result.reason, "Secret area");
+    });
+
+    it("should use last matching override (last wins)", () => {
+      const permission: PermissionSection = {
+        default: "allow",
+        overrides: [
+          { path: ["/**"], action: "deny" },
+          { path: ["/public/**"], action: "allow", reason: "Public area" },
+        ],
+      };
+
+      const result = checkPathPermission("/public/file.txt", permission, testContext);
+      assert.strictEqual(result.action, "allow");
+      assert.strictEqual(result.reason, "Public area");
+    });
+
+    it("should expand variables in patterns", () => {
+      const permission: PermissionSection = {
+        default: "ask",
+        overrides: [
+          { path: ["{{HOME}}/.ssh/**"], action: "deny", reason: "SSH keys" },
+        ],
+      };
+
+      const result = checkPathPermission("/home/user/.ssh/id_rsa", permission, testContext);
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should match against multiple patterns in single override", () => {
+      const permission: PermissionSection = {
+        default: "allow",
+        overrides: [
+          { path: ["/a/**", "/b/**"], action: "deny" },
+        ],
+      };
+
+      assert.strictEqual(checkPathPermission("/a/file", permission, testContext).action, "deny");
+      assert.strictEqual(checkPathPermission("/b/file", permission, testContext).action, "deny");
+      assert.strictEqual(checkPathPermission("/c/file", permission, testContext).action, "allow");
+    });
+
+    it("should include matchedPattern in result", () => {
+      const permission: PermissionSection = {
+        default: "allow",
+        overrides: [
+          { path: ["/test/**"], action: "ask", reason: "Test area" },
+        ],
+      };
+
+      const result = checkPathPermission("/test/file.txt", permission, testContext);
+      assert.strictEqual(result.matchedPattern, "/test/**");
+    });
+  });
+
+  describe("checkRead", () => {
+    it("should use permissions.read configuration", () => {
+      const config = createEmptyConfig();
+      config.permissions.read.default = "ask";
+      config.permissions.read.overrides.push({
+        path: ["/safe/**"],
+        action: "allow",
+      });
+
+      const safeResult = checkRead("/safe/file.txt", config, testContext);
+      assert.strictEqual(safeResult.action, "allow");
+
+      const defaultResult = checkRead("/other/file.txt", config, testContext);
+      assert.strictEqual(defaultResult.action, "ask");
+    });
+  });
+
+  describe("checkWrite", () => {
+    it("should use permissions.write configuration", () => {
+      const config = createEmptyConfig();
+      config.permissions.write.default = "ask";
+      config.permissions.write.overrides.push({
+        path: ["{{CWD}}/**"],
+        action: "allow",
+      });
+
+      const allowedResult = checkWrite("/project/file.txt", config, testContext);
+      assert.strictEqual(allowedResult.action, "allow");
+
+      const askResult = checkWrite("/outside/file.txt", config, testContext);
+      assert.strictEqual(askResult.action, "ask");
+    });
+  });
+
+  describe("checkDelete", () => {
+    it("should use permissions.delete configuration", () => {
+      const config = createEmptyConfig();
+      config.permissions.delete.default = "ask";
+      config.permissions.delete.overrides.push({
+        path: ["/etc/**", "/usr/**", "/var/**"],
+        action: "deny",
+        reason: "System directories",
+      });
+
+      const denyResult = checkDelete("/etc/config", config, testContext);
+      assert.strictEqual(denyResult.action, "deny");
+      assert.strictEqual(denyResult.reason, "System directories");
+
+      const askResult = checkDelete("/home/user/file", config, testContext);
+      assert.strictEqual(askResult.action, "ask");
+    });
+  });
+
+  describe("getDefaultContext", () => {
+    it("should return context with system values", () => {
+      const context = getDefaultContext();
+      assert.strictEqual(context.cwd, process.cwd());
+      assert.strictEqual(context.home, os.homedir());
+      assert.strictEqual(context.tmpdir, os.tmpdir());
+      assert.strictEqual(context.repo, undefined); // Not detected by default
+    });
+  });
+});
