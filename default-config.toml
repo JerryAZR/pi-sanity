@@ -73,3 +73,61 @@ default_perm = "delete"
 [commands.dd]
 default_action = "deny"
 reason = "dd is a low-level disk utility not typically needed in development"
+
+# Package managers - global installs are denied, use project-level installs instead
+[commands.npm]
+default_action = "allow"
+
+[commands.npm.flags]
+"-g" = { action = "deny", reason = "Use project-local installs instead of global" }
+"--global" = { action = "deny", reason = "Use project-local installs instead of global" }
+
+[commands.yarn]
+default_action = "allow"
+
+[commands.yarn.flags]
+"global" = { action = "deny", reason = "Use project-local installs instead of global" }
+
+[commands.pnpm]
+default_action = "allow"
+
+[commands.pnpm.flags]
+"-g" = { action = "deny", reason = "Use project-local installs instead of global" }
+"--global" = { action = "deny", reason = "Use project-local installs instead of global" }
+
+[commands.pip]
+default_action = "allow"
+
+[commands.pip.flags]
+"--user" = { action = "deny", reason = "Use virtual environments instead of user-level installs" }
+
+[commands.pip3]
+default_action = "allow"
+
+[commands.pip3.flags]
+"--user" = { action = "deny", reason = "Use virtual environments instead of user-level installs" }
+
+# System package managers - ask before installing
+[commands.brew]
+default_action = "ask"
+reason = "System-level package installation requires confirmation"
+
+[commands.apt]
+default_action = "ask"
+reason = "System-level package installation requires confirmation"
+
+[commands.apt-get]
+default_action = "ask"
+reason = "System-level package installation requires confirmation"
+
+[commands.yum]
+default_action = "ask"
+reason = "System-level package installation requires confirmation"
+
+[commands.dnf]
+default_action = "ask"
+reason = "System-level package installation requires confirmation"
+
+[commands.pacman]
+default_action = "ask"
+reason = "System-level package installation requires confirmation"
