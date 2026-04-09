@@ -95,7 +95,7 @@ aliases = ["pip3"]
 
 [[commands.pip.pre_checks]]
 env = "VIRTUAL_ENV"
-match = "!glob:*"
+match = ""
 action = "deny"
 reason = "pip must be run inside a virtual environment"
 
