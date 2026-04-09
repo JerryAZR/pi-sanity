@@ -77,6 +77,7 @@ reason = "dd is a low-level disk utility not typically needed in development"
 # Package managers - global installs are denied, use project-level installs instead
 [commands.npm]
 default_action = "allow"
+aliases = ["pnpm"]
 
 [commands.npm.flags]
 "-g" = { action = "deny", reason = "Use project-local installs instead of global" }
@@ -88,21 +89,9 @@ default_action = "allow"
 [commands.yarn.flags]
 "global" = { action = "deny", reason = "Use project-local installs instead of global" }
 
-[commands.pnpm]
-default_action = "allow"
-
-[commands.pnpm.flags]
-"-g" = { action = "deny", reason = "Use project-local installs instead of global" }
-"--global" = { action = "deny", reason = "Use project-local installs instead of global" }
-
 [commands.pip]
 default_action = "allow"
+aliases = ["pip3"]
 
 [commands.pip.flags]
-"--user" = { action = "deny", reason = "Use virtual environments instead of user-level installs" }
-
-[commands.pip3]
-default_action = "allow"
-
-[commands.pip3.flags]
 "--user" = { action = "deny", reason = "Use virtual environments instead of user-level installs" }
