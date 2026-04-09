@@ -106,28 +106,3 @@ default_action = "allow"
 
 [commands.pip3.flags]
 "--user" = { action = "deny", reason = "Use virtual environments instead of user-level installs" }
-
-# System package managers - ask before installing
-[commands.brew]
-default_action = "ask"
-reason = "System-level package installation requires confirmation"
-
-[commands.apt]
-default_action = "ask"
-reason = "System-level package installation requires confirmation"
-
-[commands.apt-get]
-default_action = "ask"
-reason = "System-level package installation requires confirmation"
-
-[commands.yum]
-default_action = "ask"
-reason = "System-level package installation requires confirmation"
-
-[commands.dnf]
-default_action = "ask"
-reason = "System-level package installation requires confirmation"
-
-[commands.pacman]
-default_action = "ask"
-reason = "System-level package installation requires confirmation"
