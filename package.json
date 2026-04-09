@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test dist/tests/*.test.js",
+    "test": "npm run build && node run-tests.js",
     "check": "tsc --noEmit"
   },
   "dependencies": {

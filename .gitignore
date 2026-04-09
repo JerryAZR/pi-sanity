@@ -6,6 +6,7 @@ node_modules/
 *.js.map
 *.d.ts
 !node_modules/**/*.d.ts
+!run-tests.js
 
 # Logs
 *.log
