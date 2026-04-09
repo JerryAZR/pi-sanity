@@ -65,6 +65,12 @@ export function createEmptyConfig(): SanityConfig {
       write: { default: "allow", overrides: [] },
       delete: { default: "allow", overrides: [] },
     },
-    commands: {},
+    commands: {
+      // Global default for unknown commands - low friction
+      "_": {
+        default_action: "allow",
+        reason: "Unknown commands default to allow (low-friction)",
+      },
+    },
   };
 }

@@ -2,6 +2,11 @@
 # This file is shipped with the extension and serves as the base configuration.
 # User configs (global and project-level) override these defaults.
 
+# Global default for unknown commands - low friction approach
+[commands._]
+default_action = "allow"
+reason = "Unknown commands default to allow (low-friction)"
+
 [permissions.read]
 default = "allow"
 

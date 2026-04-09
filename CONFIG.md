@@ -118,6 +118,21 @@ Define how to parse and check specific commands.
 | `reason` | string | No | Explanation for user |
 | `aliases` | string[] | No | Alternative names for this command |
 
+#### Global Default for Unknown Commands
+
+Use `[commands._]` to set the default action for any command not explicitly defined. This provides a low-friction baseline.
+
+```toml
+[commands._]
+default_action = "allow"
+reason = "Unknown commands default to allow (low-friction)"
+```
+
+Commands are looked up in this order:
+1. Exact match (e.g., `cp` matches `[commands.cp]`)
+2. Alias match (e.g., `move` matches `[commands.cp]` if `aliases = ["move"]`)
+3. Global default `[commands._]`
+
 ### Pre-Checks (Environment)
 
 Validate environment before parsing arguments.

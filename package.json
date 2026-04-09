@@ -9,7 +9,11 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "unbash": "^2.2.0"
+    "commander": "^14.0.3",
+    "minimatch": "^10.2.5",
+    "smol-toml": "^1.6.1",
+    "unbash": "^2.2.0",
+    "yargs": "^18.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

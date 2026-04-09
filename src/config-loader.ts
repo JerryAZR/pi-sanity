@@ -233,6 +233,29 @@ export function getPathAction(
 }
 
 /**
+ * Get command config, falling back to global default "_" if not found
+ */
+export function getCommandConfig(
+  config: SanityConfig,
+  commandName: string,
+): CommandConfig | undefined {
+  // Check for exact match
+  if (config.commands[commandName]) {
+    return config.commands[commandName];
+  }
+
+  // Check aliases
+  for (const [name, cmdConfig] of Object.entries(config.commands)) {
+    if (cmdConfig.aliases?.includes(commandName)) {
+      return cmdConfig;
+    }
+  }
+
+  // Fall back to global default
+  return config.commands["_"];
+}
+
+/**
  * Check if a path matches any of the glob patterns
  */
 function matchesGlobAny(path: string, patterns: string[]): boolean {
