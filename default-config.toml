@@ -95,3 +95,20 @@ aliases = ["pip3"]
 
 [commands.pip.flags]
 "--user" = { action = "deny", reason = "Use virtual environments instead of user-level installs" }
+
+# User-level package managers - deny by default
+[commands.winget]
+default_action = "deny"
+reason = "System package installation should use system-level tools with proper permissions"
+
+[commands.scoop]
+default_action = "deny"
+reason = "Third-party package managers can introduce security risks"
+
+[commands.choco]
+default_action = "deny"
+reason = "Third-party package managers can introduce security risks"
+
+[commands.flatpak]
+default_action = "deny"
+reason = "User-level sandboxed packages bypass system security policies"
