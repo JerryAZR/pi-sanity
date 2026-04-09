@@ -93,8 +93,14 @@ default_action = "allow"
 default_action = "allow"
 aliases = ["pip3"]
 
+[[commands.pip.pre_checks]]
+env = "VIRTUAL_ENV"
+match = "!glob:*"
+action = "deny"
+reason = "pip must be run inside a virtual environment"
+
 [commands.pip.flags]
-"--user" = { action = "deny", reason = "Use virtual environments instead of user-level installs" }
+"--user" = { action = "deny", reason = "--user installs outside the virtual environment" }
 
 # User-level package managers - deny by default
 [commands.winget]
