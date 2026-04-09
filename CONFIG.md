@@ -17,9 +17,22 @@ Later configs override earlier ones.
 
 Define path-based rules for the three fundamental operations: `read`, `write`, and `delete`.
 
-### Example: Read Permissions
+### Schema
 
-This example demonstrates the override behavior (last match wins):
+#### `[permissions.{read,write,delete}]`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `default` | string | Yes | Default action: `allow`, `ask`, or `deny` |
+
+#### `[[permissions.*.overrides]]`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | string[] | Yes | List of path patterns (globs supported) |
+| `action` | string | Yes | Action to apply: `allow`, `ask`, or `deny` |
+
+**Override resolution:** Evaluated top-to-bottom, **last match wins**.
 
 ```toml
 [permissions.read]
@@ -38,39 +51,10 @@ action = "allow"
 
 With this config:
 - `~/.bashrc` → **ask** (matches first override)
-- `~/.ssh/id_rsa` → **ask** (matches first override, not a .pub file)
-- `~/.ssh/id_rsa.pub` → **allow** (matches second override, last match wins)
-- `/etc/passwd` → **allow** (default, no override matches)
-
-### Schema
-
-#### `[permissions.{read,write,delete}]`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `default` | string | Yes | Default action: `allow`, `ask`, or `deny` |
-
-#### `[[permissions.*.overrides]]`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string[] | Yes | List of path patterns (globs supported) |
-| `action` | string | Yes | Action to apply: `allow`, `ask`, or `deny` |
-
-**Override resolution:** Evaluated top-to-bottom, **last match wins**.
+- `~/.ssh/id_rsa.pub` → **allow** (second override wins)
+- `/etc/passwd` → **allow** (default, no match)
 
 ### Path Pattern Syntax
-
-#### Variable Substitution
-
-| Variable | Expands To |
-|----------|-----------|
-| `{{HOME}}` | User's home directory (`os.homedir()`) |
-| `{{CWD}}` | Current working directory |
-| `{{TMPDIR}}` | System temp directory (`os.tmpdir()`) |
-| `$ENV_VAR` | Value of environment variable |
-
-Variables are expanded before glob matching.
 
 #### Variable Substitution
 
@@ -81,6 +65,14 @@ Variables are expanded before glob matching.
 | `{{REPO}}` | Git repository root (`git rev-parse --show-toplevel`), falls back to `{{CWD}}` if not in a git repo |
 | `{{TMPDIR}}` | System temp directory (`os.tmpdir()`) |
 | `$ENV_VAR` | Value of environment variable |
+
+```toml
+path = [
+    "{{HOME}}/.ssh/**",     # Expands to /home/user/.ssh/**
+    "$KUBECONFIG",          # Expands to value of $KUBECONFIG
+    "{{REPO}}/build/**"     # Expands to git-repo-root/build/**
+]
+```
 
 Variables are expanded before glob matching.
 
@@ -97,49 +89,22 @@ Uses Node.js `path.matchesGlob()` semantics. Patterns are matched as-is after va
 | `{{HOME}}/.ssh/**` | All files in `~/.ssh/` recursively |
 | `{{CWD}}/.env*` | `.env`, `.env.local`, `.env.production`, etc. |
 
+```toml
+# Match all files in .ssh directory recursively
+path = ["{{HOME}}/.ssh/**"]
+
+# Match specific file extensions
+path = ["{{HOME}}/.ssh/*.pub", "{{HOME}}/.ssh/config"]
+
+# Match hidden files in home
+path = ["{{HOME}}/.*"]
+```
+
 ---
 
 ## Part 2: Command Rules
 
 Define how to parse and check specific commands.
-
-```toml
-[commands.cp]
-default_action = "allow"
-aliases = ["copy"]
-
-[[commands.cp.pre_checks]]
-env = "USER"
-match = "root"
-action = "deny"
-reason = "Running as root is dangerous"
-
-[[commands.cp.pre_checks]]
-env = "PWD"
-match = "!glob:{{CWD}}/*"
-action = "ask"
-reason = "Running outside project directory"
-
-[commands.cp.positionals]
-default_perm = "read"
-overrides = { "-1" = "write" }
-
-[commands.cp.options]
-"-t" = "write"
-"--target-directory" = "write"
-
-[commands.cp.flags]
-"--force" = { action = "ask", reason = "Force flag can overwrite files" }
-
-# mv is similar but first arg is read+delete
-[commands.mv]
-default_action = "allow"
-aliases = ["move"]
-
-[commands.mv.positionals]
-default_perm = "read"
-overrides = { "0" = "read,delete", "-1" = "write" }
-```
 
 ### Schema
 
@@ -180,6 +145,20 @@ reason = "Optional explanation"
 
 Multiple pre-checks are evaluated, **strictest action wins**.
 
+```toml
+[[commands.cp.pre_checks]]
+env = "USER"
+match = "root"
+action = "deny"
+reason = "Don't run as root"
+
+[[commands.cp.pre_checks]]
+env = "PWD"
+match = "!glob:{{REPO}}/*"
+action = "ask"
+reason = "Outside project directory"
+```
+
 ### Positional Arguments
 
 ```toml
@@ -202,6 +181,16 @@ overrides = { "0" = "read,delete", "-1" = "write" }
 - Multiple: `"read,delete"` (checks both, strictest wins)
 - Empty: `""` (no check for this argument)
 
+```toml
+[commands.cp.positionals]
+default_perm = "read"           # Most args are sources to read
+overrides = { "-1" = "write" }  # Last arg is destination to write
+
+[commands.mv.positionals]
+default_perm = "read,delete"
+overrides = { "-1" = "write" }
+```
+
 ### Options (Arguments with Values)
 
 ```toml
@@ -212,6 +201,21 @@ overrides = { "0" = "read,delete", "-1" = "write" }
 ```
 
 The value of the option is checked against the specified permission.
+
+```toml
+[commands.gcc.options]
+"-o" = "write"          # gcc -o output-file
+"-I" = "read"           # gcc -I include-dir
+"-L" = "read"           # gcc -L library-dir
+```
+
+Use empty string `""` to exclude an option's value from checks:
+
+```toml
+[commands.head.options]
+"-n" = ""               # head -n 10 (10 is a number, not a path)
+"-c" = ""               # head -c 100 (byte count, not a path)
+```
 
 ### Flags (Boolean)
 
@@ -225,6 +229,16 @@ The value of the option is checked against the specified permission.
 |-------|------|----------|-------------|
 | `action` | string | Yes | Action if flag is present |
 | `reason` | string | No | Explanation for user |
+
+```toml
+[commands.rm.flags]
+"--force" = { action = "ask", reason = "Force bypasses confirmation" }
+"-f" = { action = "ask" }       # Short form same restriction
+
+[commands.cp.flags]
+"--force" = { action = "ask", reason = "Can overwrite files" }
+"--no-clobber" = { action = "allow" }  # Safe flag, no restriction
+```
 
 ---
 
