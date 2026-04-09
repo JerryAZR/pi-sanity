@@ -10,6 +10,10 @@ path = ["{{HOME}}/.*"]
 action = "ask"
 reason = "Hidden files in home directory may contain secrets"
 
+[[permissions.read.overrides]]
+path = ["{{HOME}}/.ssh/*.pub"]
+action = "allow"
+
 [permissions.write]
 default = "ask"
 reason = "Writing outside known-safe locations requires confirmation"
