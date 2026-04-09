@@ -19,13 +19,13 @@ default = "ask"
 reason = "Writing outside known-safe locations requires confirmation"
 
 [[permissions.write.overrides]]
-path = ["{{REPO}}/**", "{{TMPDIR}}/**"]
+path = ["{{CWD}}/**", "{{TMPDIR}}/**"]
 action = "allow"
 
 [[permissions.write.overrides]]
 path = ["{{REPO}}/.git/**"]
-action = "deny"
-reason = "Modifying git internals can corrupt repository"
+action = "ask"
+reason = "Modifying git internals can be dangerous"
 
 [permissions.delete]
 default = "ask"
