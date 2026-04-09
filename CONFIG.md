@@ -4,12 +4,12 @@
 
 Configuration controls **what actions to take** when checks are triggered. Command definitions control **which paths to check** and **environment pre-conditions**.
 
-**Configuration hierarchy:**
+**Configuration hierarchy (all merged):**
 1. **Built-in defaults** - shipped with extension (see `default-config.toml`)
 2. **User global config** - `~/.config/pi/sanity.toml`
 3. **Project config** - `.pi-sanity.toml` in project root
 
-Later configs override earlier ones.
+Later configs **merge** with earlier ones, appending arrays and overriding scalars. Since "last match wins" for path overrides, project rules naturally take priority while keeping base protections.
 
 ---
 
