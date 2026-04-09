@@ -31,6 +31,7 @@ Define path-based rules for the three fundamental operations: `read`, `write`, a
 |-------|------|----------|-------------|
 | `path` | string[] | Yes | List of path patterns (globs supported) |
 | `action` | string | Yes | Action to apply: `allow`, `ask`, or `deny` |
+| `reason` | string | No | Explanation for user |
 
 **Override resolution:** Evaluated top-to-bottom, **last match wins**.
 
@@ -42,6 +43,7 @@ default = "allow"
 [[permissions.read.overrides]]
 path = ["{{HOME}}/.*"]
 action = "ask"
+reason = "Hidden files may contain secrets"
 
 # Second override: but public keys are safe (overrides the hidden rule above)
 [[permissions.read.overrides]]
@@ -113,6 +115,7 @@ Define how to parse and check specific commands.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `default_action` | string | Yes | Action when no specific check applies |
+| `reason` | string | No | Explanation for user |
 | `aliases` | string[] | No | Alternative names for this command |
 
 ### Pre-Checks (Environment)
@@ -273,9 +276,11 @@ default = "allow"
 [[permissions.read.overrides]]
 path = ["{{HOME}}/.*"]
 action = "deny"
+reason = "Hidden files may contain secrets"
 
 [permissions.write]
 default = "deny"
+reason = "Writing anywhere is blocked by default"
 
 [[permissions.write.overrides]]
 path = ["{{CWD}}/**"]
@@ -283,6 +288,7 @@ action = "allow"
 
 [commands.rm]
 default_action = "deny"
+reason = "Deletion is not allowed by default"
 
 [commands.rm.flags]
 "--force" = { action = "deny", reason = "Force flag is too dangerous" }
@@ -300,9 +306,11 @@ default = "allow"
 [[permissions.write.overrides]]
 path = ["{{HOME}}/.ssh/**", "{{HOME}}/.aws/**"]
 action = "deny"
+reason = "Never modify credential files"
 
 [permissions.delete]
 default = "ask"
+reason = "Deletion requires confirmation"
 
 [[permissions.delete.overrides]]
 path = ["{{REPO}}/build/**", "{{TMPDIR}}/**"]
@@ -314,6 +322,7 @@ action = "allow"
 ```toml
 [permissions.write]
 default = "ask"
+reason = "Writing outside project requires confirmation"
 
 [[permissions.write.overrides]]
 path = [

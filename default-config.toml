@@ -8,9 +8,11 @@ default = "allow"
 [[permissions.read.overrides]]
 path = ["{{HOME}}/.*"]
 action = "ask"
+reason = "Hidden files in home directory may contain secrets"
 
 [permissions.write]
 default = "ask"
+reason = "Writing outside known-safe locations requires confirmation"
 
 [[permissions.write.overrides]]
 path = ["{{REPO}}/**", "{{TMPDIR}}/**"]
@@ -19,17 +21,19 @@ action = "allow"
 [[permissions.write.overrides]]
 path = ["{{REPO}}/.git/**"]
 action = "deny"
+reason = "Modifying git internals can corrupt repository"
 
 [permissions.delete]
 default = "ask"
+reason = "Deletion requires explicit confirmation"
 
 [[permissions.delete.overrides]]
 path = ["{{HOME}}", "/", "/etc", "/usr", "/var"]
 action = "deny"
+reason = "Deleting system or home directory is dangerous"
 
 [commands.cp]
 default_action = "allow"
-aliases = ["copy"]
 
 [commands.cp.positionals]
 default_perm = "read"
@@ -41,7 +45,6 @@ overrides = { "-1" = "write" }
 
 [commands.mv]
 default_action = "allow"
-aliases = ["move"]
 
 [commands.mv.positionals]
 default_perm = "read,delete"
@@ -54,7 +57,7 @@ default_action = "allow"
 default_perm = "delete"
 
 [commands.rm.flags]
-"--force" = { action = "ask", reason = "Force flag bypasses confirmation" }
+"--force" = { action = "ask", reason = "Force flag bypasses confirmation prompts" }
 
 [commands.dd]
 default_action = "allow"
