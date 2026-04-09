@@ -4,7 +4,7 @@
   "description": "Pi extension for sanity checks on agent operations",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/**/*.test.ts",
+    "test": "node --test tests/*.test.ts",
     "check": "tsc --noEmit"
   },
   "dependencies": {
