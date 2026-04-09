@@ -36,6 +36,15 @@ path = ["{{HOME}}", "/", "/etc", "/usr", "/var"]
 action = "deny"
 reason = "Deleting system or home directory is dangerous"
 
+[[permissions.delete.overrides]]
+path = ["{{CWD}}/**"]
+action = "allow"
+
+[[permissions.delete.overrides]]
+path = ["{{REPO}}/.git/**"]
+action = "ask"
+reason = "Deleting git internals can be dangerous"
+
 [commands.cp]
 default_action = "allow"
 
