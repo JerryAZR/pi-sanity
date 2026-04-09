@@ -72,7 +72,17 @@ With this config:
 
 Variables are expanded before glob matching.
 
-**Note on `{{CWD}}`:** This is the current working directory where the command runs. For git repository root detection, use a pre-check on the `PWD` environment variable with a `!glob` pattern.
+#### Variable Substitution
+
+| Variable | Expands To |
+|----------|-----------|
+| `{{HOME}}` | User's home directory (`os.homedir()`) |
+| `{{CWD}}` | Current working directory |
+| `{{REPO}}` | Git repository root (`git rev-parse --show-toplevel`), falls back to `{{CWD}}` if not in a git repo |
+| `{{TMPDIR}}` | System temp directory (`os.tmpdir()`) |
+| `$ENV_VAR` | Value of environment variable |
+
+Variables are expanded before glob matching.
 
 #### Glob Patterns
 
@@ -86,9 +96,6 @@ Uses Node.js `path.matchesGlob()` semantics. Patterns are matched as-is after va
 | `[abc]` | Character class |
 | `{{HOME}}/.ssh/**` | All files in `~/.ssh/` recursively |
 | `{{CWD}}/.env*` | `.env`, `.env.local`, `.env.production`, etc. |
-| `*/` | Directories only (trailing slash in pattern) |
-
-**Note:** Glob matching follows standard rules - a pattern without trailing slash matches both files and directories. Add `/` to the pattern to match directories only.
 
 ---
 
@@ -287,7 +294,7 @@ action = "deny"
 default = "ask"
 
 [[permissions.delete.overrides]]
-path = ["{{CWD}}/build/**", "{{TMPDIR}}/**"]
+path = ["{{REPO}}/build/**", "{{TMPDIR}}/**"]
 action = "allow"
 ```
 
@@ -299,7 +306,7 @@ default = "ask"
 
 [[permissions.write.overrides]]
 path = [
-    "{{CWD}}/**",
+    "{{REPO}}/**",
     "$SHARED_OUTPUT_DIR/**"
 ]
 action = "allow"
@@ -323,11 +330,11 @@ action = "ask"
 default = "ask"
 
 [[permissions.write.overrides]]
-path = ["{{CWD}}/**", "{{TMPDIR}}/**"]
+path = ["{{REPO}}/**", "{{TMPDIR}}/**"]
 action = "allow"
 
 [[permissions.write.overrides]]
-path = ["{{CWD}}/.git/**"]
+path = ["{{REPO}}/.git/**"]
 action = "deny"
 
 [permissions.delete]
