@@ -148,6 +148,8 @@ reason = "Optional explanation"
 
 Multiple pre-checks are evaluated, **strictest action wins**.
 
+**Note on environment variables:** Unset variables and empty strings (`""`) are treated as equivalent for matching purposes.
+
 ```toml
 [[commands.cp.pre_checks]]
 env = "USER"
