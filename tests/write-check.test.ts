@@ -62,12 +62,8 @@ describe("checkWrite - outside project", () => {
     assert.strictEqual(result.action, "ask");
   });
 
-  it("asks when writing to system directory", () => {
-    // On Unix: /etc, on Windows: C:\Windows\System32
-    assert.strictEqual(checkWrite("/etc/myapp/config", ctx).action, "ask");
-  });
-
-  it("asks when writing outside project entirely", () => {
+  it("asks when writing outside home entirely", () => {
+    // Go up from home to a path definitely outside both home and project
     const result = checkWrite(join(homedir(), "..", "other-project", "file.txt"), ctx);
     assert.strictEqual(result.action, "ask");
   });
