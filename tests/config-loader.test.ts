@@ -2,9 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import {
   mergeConfigs,
-  getPathAction,
   getCommandConfig,
-  loadConfig,
 } from "../src/config-loader.js";
 import { createEmptyConfig } from "../src/config-types.js";
 import type { SanityConfig, CommandConfig } from "../src/config-types.js";
@@ -63,7 +61,6 @@ describe("config-loader", () => {
       const base = createEmptyConfig();
       base.commands["cp"] = {
         default_action: "allow",
-        aliases: ["copy"],
         pre_checks: [{ env: "USER", match: "root", action: "deny" }],
       };
 
@@ -84,7 +81,6 @@ describe("config-loader", () => {
       const merged = mergeConfigs([base, override]);
       const cp = merged.commands["cp"];
       assert.strictEqual(cp.default_action, "ask"); // Overridden
-      assert.deepStrictEqual(cp.aliases, ["copy"]); // Preserved from base
       assert.strictEqual(cp.pre_checks?.length, 2); // Both pre-checks
     });
 
@@ -107,57 +103,37 @@ describe("config-loader", () => {
       const merged = mergeConfigs([base, override]);
       assert.strictEqual(merged.commands["custom"].default_action, "deny");
     });
-  });
 
-  describe("getPathAction", () => {
-    it("should return default action when no overrides match", () => {
-      const config = createEmptyConfig();
-      config.permissions.read.default = "ask";
-      config.permissions.read.reason = "Default reason";
+    it("should allow aliases to diverge independently after expansion", () => {
+      // Simulate pre-expanded configs (aliases already processed)
+      const base: Partial<SanityConfig> = {
+        permissions: {
+          read: { default: "allow", overrides: [] },
+          write: { default: "allow", overrides: [] },
+          delete: { default: "allow", overrides: [] },
+        },
+        commands: {
+          npm: { default_action: "allow" },
+          pnpm: { default_action: "allow" }, // expanded alias
+        },
+      };
 
-      const result = getPathAction("/some/path", config.permissions.read);
-      assert.strictEqual(result.action, "ask");
-      assert.strictEqual(result.reason, "Default reason");
-    });
+      // Later config overrides just the alias
+      const override: Partial<SanityConfig> = {
+        permissions: {
+          read: { default: "allow", overrides: [] },
+          write: { default: "allow", overrides: [] },
+          delete: { default: "allow", overrides: [] },
+        },
+        commands: {
+          pnpm: { default_action: "deny", reason: "Custom pnpm rule" },
+        },
+      };
 
-    it("should return matching override action", () => {
-      const config = createEmptyConfig();
-      config.permissions.read.overrides.push({
-        path: ["/secret/**"],
-        action: "deny",
-        reason: "Secret files",
-      });
-
-      const result = getPathAction("/secret/file.txt", config.permissions.read);
-      assert.strictEqual(result.action, "deny");
-      assert.strictEqual(result.reason, "Secret files");
-    });
-
-    it("should use last matching override (last wins)", () => {
-      const config = createEmptyConfig();
-      config.permissions.read.overrides.push({
-        path: ["/**"],
-        action: "deny",
-      });
-      config.permissions.read.overrides.push({
-        path: ["/public/**"],
-        action: "allow",
-      });
-
-      const result = getPathAction("/public/file.txt", config.permissions.read);
-      assert.strictEqual(result.action, "allow");
-    });
-
-    it("should support multiple patterns in single override", () => {
-      const config = createEmptyConfig();
-      config.permissions.read.overrides.push({
-        path: ["/a/**", "/b/**"],
-        action: "deny",
-      });
-
-      assert.strictEqual(getPathAction("/a/file", config.permissions.read).action, "deny");
-      assert.strictEqual(getPathAction("/b/file", config.permissions.read).action, "deny");
-      assert.strictEqual(getPathAction("/c/file", config.permissions.read).action, "allow");
+      const merged = mergeConfigs([base, override]);
+      assert.strictEqual(merged.commands["npm"].default_action, "allow"); // Unchanged
+      assert.strictEqual(merged.commands["pnpm"].default_action, "deny"); // Overridden
+      assert.strictEqual(merged.commands["pnpm"].reason, "Custom pnpm rule");
     });
   });
 
@@ -170,18 +146,17 @@ describe("config-loader", () => {
       assert.strictEqual(result?.default_action, "ask");
     });
 
-    it("should match by alias", () => {
+    it("should return O(1) lookup for expanded aliases", () => {
+      // Aliases are expanded into separate entries during load
       const config = createEmptyConfig();
-      config.commands["cp"] = {
-        default_action: "ask",
-        aliases: ["copy"],
-      };
+      config.commands["cp"] = { default_action: "allow" };
+      config.commands["copy"] = { default_action: "allow" }; // expanded alias
 
       const result = getCommandConfig(config, "copy");
-      assert.strictEqual(result?.default_action, "ask");
+      assert.strictEqual(result?.default_action, "allow");
     });
 
-    it("should fall back to global default (_)", () => {
+    it("should fall back to global default (_) if not found", () => {
       const config = createEmptyConfig();
       config.commands["_"] = { default_action: "deny", reason: "Unknown" };
 
@@ -190,16 +165,17 @@ describe("config-loader", () => {
       assert.strictEqual(result?.reason, "Unknown");
     });
 
-    it("should prefer exact match over alias", () => {
+    it("should allow overriding specific aliases independently", () => {
       const config = createEmptyConfig();
-      config.commands["mv"] = { default_action: "ask" };
-      config.commands["cp"] = {
-        default_action: "allow",
-        aliases: ["mv"], // edge case: mv is an alias of cp
-      };
+      config.commands["cp"] = { default_action: "allow" };
+      config.commands["copy"] = { default_action: "ask", reason: "Prefer cp" };
 
-      const result = getCommandConfig(config, "mv");
-      assert.strictEqual(result?.default_action, "ask");
+      const cpResult = getCommandConfig(config, "cp");
+      const copyResult = getCommandConfig(config, "copy");
+
+      assert.strictEqual(cpResult?.default_action, "allow");
+      assert.strictEqual(copyResult?.default_action, "ask");
+      assert.strictEqual(copyResult?.reason, "Prefer cp");
     });
   });
 });

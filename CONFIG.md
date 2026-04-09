@@ -116,7 +116,7 @@ Define how to parse and check specific commands.
 |-------|------|----------|-------------|
 | `default_action` | string | Yes | Action when no specific check applies |
 | `reason` | string | No | Explanation for user |
-| `aliases` | string[] | No | Alternative names for this command |
+| `aliases` | string[] | No | Alternative names - each gets a copy of this config |
 
 #### Global Default for Unknown Commands
 
@@ -128,10 +128,39 @@ default_action = "allow"
 reason = "Unknown commands default to allow (low-friction)"
 ```
 
-Commands are looked up in this order:
-1. Exact match (e.g., `cp` matches `[commands.cp]`)
-2. Alias match (e.g., `move` matches `[commands.cp]` if `aliases = ["move"]`)
-3. Global default `[commands._]`
+Commands are looked up by exact match, falling back to `[commands._]` if not found.
+
+#### Aliases
+
+Aliases are **expanded** during config loading. Each alias gets its own `CommandConfig` copy, enabling O(1) lookup and independent override:
+
+```toml
+[commands.npm]
+default_action = "allow"
+aliases = ["pnpm", "yarn"]  # Each gets a copy of npm's config
+
+[commands.npm.flags]
+"-g" = { action = "deny", reason = "Use local installs" }
+```
+
+After loading, this becomes three independent entries:
+- `npm` → allow, with `-g` denied
+- `pnpm` → allow, with `-g` denied  
+- `yarn` → allow, with `-g` denied
+
+**Overriding aliases independently:**
+
+```toml
+# Override just pnpm to be more strict
+[commands.pnpm]
+default_action = "ask"
+reason = "Require confirmation for pnpm"
+```
+
+Now:
+- `npm` → allow (unchanged)
+- `pnpm` → ask (overridden)
+- `yarn` → allow (unchanged)
 
 ### Pre-Checks (Environment)
 

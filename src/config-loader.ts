@@ -1,6 +1,7 @@
 /**
  * Config loader for pi-sanity
  * Loads and merges TOML config files from multiple sources
+ * Aliases are expanded into separate CommandConfig entries for O(1) lookup
  */
 
 import * as fs from "fs";
@@ -11,9 +12,7 @@ import type {
   Action,
   CommandConfig,
   FlagConfig,
-  OverrideRule,
   PermissionSection,
-  PreCheck,
   PositionalConfig,
   SanityConfig,
 } from "./config-types.js";
@@ -38,7 +37,7 @@ export function loadConfig(
   // 1. Built-in defaults
   const defaultPath = path.join(extensionDir, "default-config.toml");
   if (fs.existsSync(defaultPath)) {
-    configs.push(loadTomlFile(defaultPath));
+    configs.push(expandAliases(loadTomlFile(defaultPath)));
   }
 
   // 2. User global config
@@ -49,14 +48,14 @@ export function loadConfig(
     "sanity.toml",
   );
   if (fs.existsSync(userConfigPath)) {
-    configs.push(loadTomlFile(userConfigPath));
+    configs.push(expandAliases(loadTomlFile(userConfigPath)));
   }
 
   // 3. Project config
   if (projectDir) {
     const projectConfigPath = path.join(projectDir, ".pi-sanity.toml");
     if (fs.existsSync(projectConfigPath)) {
-      configs.push(loadTomlFile(projectConfigPath));
+      configs.push(expandAliases(loadTomlFile(projectConfigPath)));
     }
   }
 
@@ -70,6 +69,43 @@ export function loadConfig(
 function loadTomlFile(filePath: string): Partial<SanityConfig> {
   const content = fs.readFileSync(filePath, "utf-8");
   return parse(content) as Partial<SanityConfig>;
+}
+
+/**
+ * Expand aliases in commands so each alias gets its own CommandConfig entry.
+ * This allows O(1) lookup and independent override of aliases.
+ *
+ * Input: { cp: { aliases: ["copy"], default_action: "allow" } }
+ * Output: { cp: { default_action: "allow" }, copy: { default_action: "allow" } }
+ */
+function expandAliases(config: Partial<SanityConfig>): Partial<SanityConfig> {
+  if (!config.commands) return config;
+
+  const expandedCommands: Record<string, CommandConfig> = {};
+
+  for (const [name, cmdConfig] of Object.entries(config.commands)) {
+    if (!cmdConfig) continue;
+
+    // Get aliases and remove from config
+    const aliases = (cmdConfig as CommandConfig & { aliases?: string[] }).aliases;
+    const { aliases: _, ...configWithoutAliases } = cmdConfig as CommandConfig & { aliases?: string[] };
+
+    // Add primary command
+    expandedCommands[name] = configWithoutAliases;
+
+    // Expand each alias as a copy
+    if (aliases) {
+      for (const alias of aliases) {
+        // Alias gets a copy - can diverge independently
+        expandedCommands[alias] = { ...configWithoutAliases };
+      }
+    }
+  }
+
+  return {
+    ...config,
+    commands: expandedCommands,
+  };
 }
 
 /**
@@ -151,7 +187,6 @@ function mergePermissionSection(
 /**
  * Merge command configs
  * - default_action/reason: override
- * - aliases: append arrays
  * - pre_checks: append arrays
  * - positionals: deep merge
  * - options: override (later wins)
@@ -168,7 +203,6 @@ function mergeCommandConfig(
   return {
     default_action: source.default_action ?? base.default_action,
     reason: source.reason ?? base.reason,
-    aliases: [...(base.aliases ?? []), ...(source.aliases ?? [])],
     pre_checks: [...(base.pre_checks ?? []), ...(source.pre_checks ?? [])],
     positionals: mergePositionals(base.positionals, source.positionals),
     options: { ...base.options, ...source.options },
@@ -206,111 +240,12 @@ function mergeFlags(
 }
 
 /**
- * Get action for a path against permission rules
- * Returns strictest matching action
- */
-export function getPathAction(
-  resolvedPath: string,
-  permission: PermissionSection,
-): { action: Action; reason?: string } {
-  // Check overrides in order (last match wins)
-  let result: { action: Action; reason?: string } = {
-    action: permission.default,
-    reason: permission.reason,
-  };
-
-  for (const override of permission.overrides) {
-    if (matchesGlobAny(resolvedPath, override.path)) {
-      result = {
-        action: override.action,
-        reason: override.reason,
-      };
-    }
-  }
-
-  return result;
-}
-
-/**
  * Get command config, falling back to global default "_" if not found
+ * O(1) lookup since aliases are expanded into separate entries
  */
 export function getCommandConfig(
   config: SanityConfig,
   commandName: string,
 ): CommandConfig | undefined {
-  // Check for exact match
-  if (config.commands[commandName]) {
-    return config.commands[commandName];
-  }
-
-  // Check aliases
-  for (const [name, cmdConfig] of Object.entries(config.commands)) {
-    if (cmdConfig.aliases?.includes(commandName)) {
-      return cmdConfig;
-    }
-  }
-
-  // Fall back to global default
-  return config.commands["_"];
-}
-
-/**
- * Check if a path matches any of the glob patterns
- */
-function matchesGlobAny(path: string, patterns: string[]): boolean {
-  for (const pattern of patterns) {
-    // Use Node.js path.matchesGlob if available (Node 22+)
-    // @ts-ignore - matchesGlob is available in Node 22+
-    if (typeof pathModule.matchesGlob === "function") {
-      // @ts-ignore
-      if (pathModule.matchesGlob(path, pattern)) {
-        return true;
-      }
-    } else {
-      // Fallback: simple glob matching
-      if (simpleGlobMatch(path, pattern)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-// Fallback glob implementation
-import * as pathModule from "path";
-
-function simpleGlobMatch(filePath: string, pattern: string): boolean {
-  // Convert glob pattern to regex
-  // * = any chars except /
-  // ** = any chars including /
-  // ? = single char
-
-  let regexStr = "^";
-  let i = 0;
-  while (i < pattern.length) {
-    const c = pattern[i];
-    if (c === "*" && pattern[i + 1] === "*") {
-      regexStr += ".*";
-      i += 2;
-    } else if (c === "*") {
-      regexStr += "[^/]*";
-      i++;
-    } else if (c === "?") {
-      regexStr += ".";
-      i++;
-    } else if (c === ".") {
-      regexStr += "\\.";
-      i++;
-    } else if (c === "/") {
-      regexStr += "[/\\\\]"; // Match both forward and backslash
-      i++;
-    } else {
-      regexStr += c;
-      i++;
-    }
-  }
-  regexStr += "$";
-
-  const regex = new RegExp(regexStr);
-  return regex.test(filePath);
+  return config.commands[commandName] ?? config.commands["_"];
 }

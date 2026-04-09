@@ -37,7 +37,6 @@ export interface FlagConfig {
 export interface CommandConfig {
   default_action: Action;
   reason?: string;
-  aliases?: string[];
   pre_checks?: PreCheck[];
   positionals?: PositionalConfig;
   options?: Record<string, string>; // option name -> permission
