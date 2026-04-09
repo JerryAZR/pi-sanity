@@ -250,10 +250,12 @@ When multiple checks apply, resolve in this order:
 Evaluate all matching pre-checks, **strictest wins** (`deny` > `ask` > `allow`).
 
 ### 2. Argument Checks
-For each extracted path, check against permissions:
-- Parse command using positionals/options/flags config
-- Each path gets checked with its specified permission(s)
-- Multiple permissions: check all, **strictest wins**
+Check command arguments using the command's configuration:
+- **Positional arguments**: Check against path permission rules using their specified permission (e.g., `read`, `write`, `delete`)
+- **Option values** (like `-o file`): Check the value against path permission rules
+- **Flags** (boolean): If flag is present, apply its action directly (no path check)
+
+When an argument has multiple permissions (e.g., `read,delete`), check against both and **strictest wins**.
 
 ### 3. Path Permission Rules
 Check extracted paths against Part 1 rules:
