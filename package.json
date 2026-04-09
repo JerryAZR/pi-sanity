@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Pi extension for sanity checks on agent operations",
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "build": "tsc",
     "test": "npm run build && node run-tests.js",
@@ -10,13 +13,12 @@
   },
   "dependencies": {
     "commander": "^14.0.3",
-    "minimatch": "^10.2.5",
     "smol-toml": "^1.6.1",
     "unbash": "^2.2.0",
     "yargs": "^18.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^22.0.0",
     "typescript": "^5.0.0"
   },
   "pi": {

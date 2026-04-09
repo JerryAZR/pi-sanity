@@ -67,87 +67,15 @@ export function expandPattern(
 
 /**
  * Check if a path matches a glob pattern
- * Uses Node.js path.matchesGlob when available (Node 22+)
- * Falls back to minimatch-style matching for older versions
+ * Requires Node.js 22+ for path.matchesGlob
  */
 export function matchesGlob(filePath: string, pattern: string): boolean {
   // Normalize paths for cross-platform matching
   const normalizedPath = filePath.replace(/\\/g, "/");
   const normalizedPattern = pattern.replace(/\\/g, "/");
 
-  // Use Node.js path.matchesGlob if available (Node 22+)
   // @ts-ignore - matchesGlob is available in Node 22+
-  if (typeof path.matchesGlob === "function") {
-    // @ts-ignore
-    return path.matchesGlob(normalizedPath, normalizedPattern);
-  }
-
-  // Fallback: convert glob to regex
-  return globToRegex(normalizedPattern).test(normalizedPath);
-}
-
-/**
- * Convert a glob pattern to a regular expression
- */
-function globToRegex(pattern: string): RegExp {
-  let regexStr = "^";
-  let i = 0;
-
-  while (i < pattern.length) {
-    const c = pattern[i];
-
-    if (c === "*" && pattern[i + 1] === "*") {
-      // ** matches any characters including /
-      regexStr += ".*";
-      i += 2;
-    } else if (c === "*") {
-      // * matches any characters except /
-      regexStr += "[^/]*";
-      i++;
-    } else if (c === "?") {
-      // ? matches any single character except /
-      regexStr += "[^/]";
-      i++;
-    } else if (c === ".") {
-      // Escape dots
-      regexStr += "\\.";
-      i++;
-    } else if (c === "/") {
-      // Match forward or backslash
-      regexStr += "[/\\\\]";
-      i++;
-    } else if (c === "[" && pattern[i + 1] === "!") {
-      // Negated character class [!abc]
-      const end = pattern.indexOf("]", i + 2);
-      if (end !== -1) {
-        regexStr += `[^${pattern.slice(i + 2, end)}]`;
-        i = end + 1;
-      } else {
-        regexStr += "\\[";
-        i++;
-      }
-    } else if (c === "[") {
-      // Character class [abc]
-      const end = pattern.indexOf("]", i + 1);
-      if (end !== -1) {
-        regexStr += `[${pattern.slice(i + 1, end)}]`;
-        i = end + 1;
-      } else {
-        regexStr += "\\[";
-        i++;
-      }
-    } else if ("\\^$+{}|()".includes(c)) {
-      // Escape regex special characters
-      regexStr += "\\" + c;
-      i++;
-    } else {
-      regexStr += c;
-      i++;
-    }
-  }
-
-  regexStr += "$";
-  return new RegExp(regexStr);
+  return path.matchesGlob(normalizedPath, normalizedPattern);
 }
 
 /**
