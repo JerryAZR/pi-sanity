@@ -257,12 +257,7 @@ Check command arguments using the command's configuration:
 
 When an argument has multiple permissions (e.g., `read,delete`), check against both and **strictest wins**.
 
-### 3. Path Permission Rules
-Check extracted paths against Part 1 rules:
-- Match path against override patterns (last match wins)
-- If no match, use `default`
-
-### 4. Default Action
+### 3. Default Action
 If no specific checks applied, use command's `default_action`.
 
 ---
