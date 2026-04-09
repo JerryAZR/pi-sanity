@@ -5,7 +5,7 @@
 Configuration controls **what actions to take** when checks are triggered. Command definitions control **which paths to check** and **environment pre-conditions**.
 
 **Configuration hierarchy:**
-1. **Built-in defaults** - shipped with extension
+1. **Built-in defaults** - shipped with extension (see `default-config.toml`)
 2. **User global config** - `~/.config/pi/sanity.toml`
 3. **Project config** - `.pi-sanity.toml` in project root
 
@@ -321,77 +321,4 @@ path = [
     "$SHARED_OUTPUT_DIR/**"
 ]
 action = "allow"
-```
-
----
-
-## Built-in Defaults
-
-Shipped with the extension, overridden by user config:
-
-```toml
-[permissions.read]
-default = "allow"
-
-[[permissions.read.overrides]]
-path = ["{{HOME}}/.*"]
-action = "ask"
-
-[permissions.write]
-default = "ask"
-
-[[permissions.write.overrides]]
-path = ["{{REPO}}/**", "{{TMPDIR}}/**"]
-action = "allow"
-
-[[permissions.write.overrides]]
-path = ["{{REPO}}/.git/**"]
-action = "deny"
-
-[permissions.delete]
-default = "ask"
-
-[[permissions.delete.overrides]]
-path = ["{{HOME}}", "/", "/etc", "/usr", "/var"]
-action = "deny"
-
-[commands.cp]
-default_action = "allow"
-aliases = ["copy"]
-
-[commands.cp.positionals]
-default_perm = "read"
-overrides = { "-1" = "write" }
-
-[commands.cp.options]
-"-t" = "write"
-"--target-directory" = "write"
-
-[commands.mv]
-default_action = "allow"
-aliases = ["move"]
-
-[commands.mv.positionals]
-default_perm = "read"
-overrides = { "0" = "read,delete", "-1" = "write" }
-
-[commands.rm]
-default_action = "allow"
-
-[commands.rm.positionals]
-default_perm = "delete"
-
-[commands.rm.flags]
-"--force" = { action = "ask", reason = "Force flag bypasses confirmation" }
-
-[commands.dd]
-default_action = "allow"
-
-[commands.dd.positionals]
-# dd uses key=value syntax, parsed specially
-default_perm = ""
-
-[commands.dd.options]
-"if" = "read"
-"of" = "write"
 ```

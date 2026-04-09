@@ -1,0 +1,68 @@
+# Built-in default configuration for pi-sanity
+# This file is shipped with the extension and serves as the base configuration.
+# User configs (global and project-level) override these defaults.
+
+[permissions.read]
+default = "allow"
+
+[[permissions.read.overrides]]
+path = ["{{HOME}}/.*"]
+action = "ask"
+
+[permissions.write]
+default = "ask"
+
+[[permissions.write.overrides]]
+path = ["{{REPO}}/**", "{{TMPDIR}}/**"]
+action = "allow"
+
+[[permissions.write.overrides]]
+path = ["{{REPO}}/.git/**"]
+action = "deny"
+
+[permissions.delete]
+default = "ask"
+
+[[permissions.delete.overrides]]
+path = ["{{HOME}}", "/", "/etc", "/usr", "/var"]
+action = "deny"
+
+[commands.cp]
+default_action = "allow"
+aliases = ["copy"]
+
+[commands.cp.positionals]
+default_perm = "read"
+overrides = { "-1" = "write" }
+
+[commands.cp.options]
+"-t" = "write"
+"--target-directory" = "write"
+
+[commands.mv]
+default_action = "allow"
+aliases = ["move"]
+
+[commands.mv.positionals]
+default_perm = "read,delete"
+overrides = { "-1" = "write" }
+
+[commands.rm]
+default_action = "allow"
+
+[commands.rm.positionals]
+default_perm = "delete"
+
+[commands.rm.flags]
+"--force" = { action = "ask", reason = "Force flag bypasses confirmation" }
+
+[commands.dd]
+default_action = "allow"
+
+[commands.dd.positionals]
+# dd uses key=value syntax, parsed specially
+default_perm = ""
+
+[commands.dd.options]
+"if" = "read"
+"of" = "write"
