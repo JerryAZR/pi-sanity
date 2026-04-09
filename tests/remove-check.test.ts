@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { homedir } from "node:os";
-import { checkRemove } from "../src/remove-check.ts";
+import { checkRemove } from "../src/remove-check.js";
 
 const ctx = {
   homeDir: homedir(),

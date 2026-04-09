@@ -20,8 +20,8 @@ import type {
   Function as FunctionNode,
   Subshell,
   BraceGroup
-} from "unbash/types";
-import type { CheckResult } from "./types.ts";
+} from "../node_modules/unbash/dist/types.d.ts";
+import type { CheckResult } from "./types.js";
 
 export interface AnalyzedCommand {
   command: string;

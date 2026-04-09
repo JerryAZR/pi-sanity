@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { checkNpmGlobal } from "../src/npm-check.ts";
+import { checkNpmGlobal } from "../src/npm-check.js";
 
 describe("checkNpmGlobal - npm", () => {
   it("allows local npm install", () => {

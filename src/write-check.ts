@@ -3,8 +3,8 @@
  */
 
 import { resolve } from "node:path";
-import type { CheckResult } from "./types.ts";
-import { isInside, isTemp, isGitPath, expandTilde } from "./path-utils.ts";
+import type { CheckResult } from "./types.js";
+import { isInside, isTemp, isGitPath, expandTilde } from "./path-utils.js";
 
 export interface WriteCheckContext {
   projectRoot: string;

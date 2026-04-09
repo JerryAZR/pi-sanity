@@ -2,9 +2,13 @@
  * Check if pip is using system Python vs project virtual environment
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { isInsideProject } from "./path-utils.ts";
-import type { CheckResult } from "./types.ts";
+import { isInside } from "./path-utils.js";
+import type { CheckResult } from "./types.js";
+
+// ExtensionAPI type - defined locally to avoid external dependency
+type ExtensionAPI = {
+  exec: (command: string, args: string[], options?: { timeout?: number }) => Promise<{ stdout: string; stderr: string }>;
+};
 
 /**
  * Check action for pip commands
@@ -39,7 +43,7 @@ export async function checkPip(
     }
 
     const pipPath = match[1];
-    const isInProject = isInsideProject(pipPath, projectRoot);
+    const isInProject = isInside(pipPath, projectRoot);
 
     return isInProject
       ? { action: "allow" }

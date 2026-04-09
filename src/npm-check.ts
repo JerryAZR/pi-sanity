@@ -2,7 +2,7 @@
  * Check for npm/yarn/pnpm global operations
  */
 
-import type { CheckResult } from "./types.ts";
+import type { CheckResult } from "./types.js";
 
 /**
  * Check action for npm/yarn/pnpm commands

@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
-import { checkBash } from "../src/bash-check.ts";
+import { checkBash } from "../src/bash-check.js";
 
 // Helper to join paths with forward slashes for bash compatibility
 const j = (...parts: string[]) => join(...parts).replace(/\\/g, "/");

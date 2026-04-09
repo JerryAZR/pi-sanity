@@ -7,11 +7,11 @@
  * 4. Return highest priority result (deny > ask > allow)
  */
 
-import type { CheckResult } from "./types.ts";
-import { walkBash } from "./bash-walker.ts";
-import { checkRead, type ReadCheckContext } from "./read-check.ts";
-import { checkWrite, type WriteCheckContext } from "./write-check.ts";
-import { isFileCommand } from "./bash-analyzer.ts";
+import type { CheckResult } from "./types.js";
+import { walkBash } from "./bash-walker.js";
+import { checkRead, type ReadCheckContext } from "./read-check.js";
+import { checkWrite, type WriteCheckContext } from "./write-check.js";
+import { isFileCommand } from "./bash-analyzer.js";
 
 export interface BashCheckContext extends ReadCheckContext, WriteCheckContext {}
 
@@ -80,7 +80,7 @@ function checkCommand(name: string, args: string[], ctx: BashCheckContext, cwd: 
   }
 }
 
-import { checkRemove, type RemoveCheckContext } from "./remove-check.ts";
+import { checkRemove, type RemoveCheckContext } from "./remove-check.js";
 
 // Placeholder checkers - implement later
 function checkRemoveCommand(args: string[], ctx: BashCheckContext & RemoveCheckContext, cwd: string): CheckResult {

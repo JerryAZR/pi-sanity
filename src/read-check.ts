@@ -3,8 +3,8 @@
  */
 
 import { resolve } from "node:path";
-import type { CheckResult } from "./types.ts";
-import { isInside, isHomeHidden, isPublicKeyFile, expandTilde } from "./path-utils.ts";
+import type { CheckResult } from "./types.js";
+import { isInside, isHomeHidden, isPublicKeyFile, expandTilde } from "./path-utils.js";
 
 export interface ReadCheckContext {
   projectRoot: string;

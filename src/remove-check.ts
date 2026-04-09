@@ -3,8 +3,8 @@
  */
 
 import { resolve } from "node:path";
-import type { CheckResult } from "./types.ts";
-import { expandTilde } from "./path-utils.ts";
+import type { CheckResult } from "./types.js";
+import { expandTilde } from "./path-utils.js";
 
 export interface RemoveCheckContext {
   homeDir: string;

@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
-import { checkRead } from "../src/read-check.ts";
+import { checkRead } from "../src/read-check.js";
 
 const ctx = {
   projectRoot: join(homedir(), "my-project"),

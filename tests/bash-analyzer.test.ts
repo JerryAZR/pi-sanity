@@ -5,7 +5,7 @@ import {
   isFileCommand,
   getWriteTargets,
   getReadSources,
-} from "../src/bash-analyzer.ts";
+} from "../src/bash-analyzer.js";
 
 describe("analyzeBash - simple commands", () => {
   it("extracts simple command", () => {

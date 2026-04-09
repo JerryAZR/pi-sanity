@@ -4,16 +4,16 @@
  */
 
 import { parse } from "unbash";
-import type { Script, Node, Command, Statement, Pipeline, Redirect } from "unbash/types";
+import type { Script, Node, Command, Statement, Pipeline, Redirect } from "../node_modules/unbash/dist/types.d.ts";
 
 export interface WalkResult {
   commands: FoundCommand[];
 }
 
 export interface FoundCommand {
-  name?: string;  // undefined for redirect-only commands
-  args: string[]; // suffix words (raw text)
-  redirects: FoundRedirect[]; // includes both command-level and statement-level
+  name?: string;
+  args: string[];
+  redirects: FoundRedirect[];
 }
 
 export interface FoundRedirect {
@@ -23,9 +23,6 @@ export interface FoundRedirect {
   isOutput: boolean;
 }
 
-/**
- * Walk the AST and extract all commands with their redirects
- */
 export function walkBash(command: string): WalkResult {
   const ast = parse(command);
   const commands: FoundCommand[] = [];
@@ -43,10 +40,8 @@ export function walkBash(command: string): WalkResult {
 
       case "Statement": {
         const stmt = node as Statement;
-        // Check statement-level redirects too
         const stmtRedirects = extractRedirects(stmt.redirects);
         if (stmtRedirects.length > 0) {
-          // Add a virtual command for statement-level redirects
           commands.push({
             name: undefined,
             args: [],
@@ -59,8 +54,7 @@ export function walkBash(command: string): WalkResult {
 
       case "Pipeline":
       case "AndOr": {
-        // @ts-expect-error
-        for (const cmd of node.commands) {
+        for (const cmd of (node as Pipeline).commands) {
           walk(cmd);
         }
         break;
@@ -69,12 +63,10 @@ export function walkBash(command: string): WalkResult {
       case "Command": {
         const cmd = node as Command;
         const cmdRedirects = extractRedirects(cmd.redirects);
-        
-        // Even if no name, capture redirects (for " > file" syntax)
         if (cmd.name?.text || cmdRedirects.length > 0) {
           commands.push({
             name: cmd.name?.text,
-            args: cmd.suffix?.map((w) => w.text) ?? [],
+            args: cmd.suffix?.map((w: { text: string }) => w.text) ?? [],
             redirects: cmdRedirects,
           });
         }
@@ -83,8 +75,7 @@ export function walkBash(command: string): WalkResult {
 
       case "Subshell":
       case "BraceGroup": {
-        // @ts-expect-error
-        const body = node.body;
+        const body = (node as { body: { commands: Statement[] } }).body;
         if (body?.commands) {
           for (const stmt of body.commands) {
             walk(stmt);
@@ -94,7 +85,6 @@ export function walkBash(command: string): WalkResult {
       }
 
       case "If": {
-        // @ts-expect-error
         const ifNode = node as { clause: { commands: Statement[] }; then: { commands: Statement[] }; else?: Node };
         for (const stmt of ifNode.clause.commands) walk(stmt);
         for (const stmt of ifNode.then.commands) walk(stmt);
@@ -102,9 +92,7 @@ export function walkBash(command: string): WalkResult {
         break;
       }
 
-      case "While":
-      case "Until": {
-        // @ts-expect-error
+      case "While": {
         const loopNode = node as { clause: { commands: Statement[] }; body: { commands: Statement[] } };
         for (const stmt of loopNode.clause.commands) walk(stmt);
         for (const stmt of loopNode.body.commands) walk(stmt);
@@ -112,8 +100,7 @@ export function walkBash(command: string): WalkResult {
       }
 
       case "For": {
-        // @ts-expect-error
-        const forBody = node.body;
+        const forBody = (node as { body: { commands: Statement[] } }).body;
         if (forBody?.commands) {
           for (const stmt of forBody.commands) {
             walk(stmt);
@@ -123,8 +110,7 @@ export function walkBash(command: string): WalkResult {
       }
 
       case "Function": {
-        // @ts-expect-error
-        walk(node.body);
+        walk((node as { body: Node }).body);
         break;
       }
 
@@ -146,12 +132,12 @@ function extractRedirects(redirects: Redirect[] | undefined): FoundRedirect[] {
       operator: op,
       target: r.target?.text ?? "",
       isInput: op === "<" || op === "<<" || op === "<<<",
-      isOutput: op === ">" || op === ">>" || op === ">&" || op === ">&>" || op === ">>|",
+      isOutput: op === ">" || op === ">>" || op === ">&" || op === "&>" || op === "&>>" || op === ">|",
     };
   });
 }
 
-// Demo
+// @ts-ignore - import.meta.main not in types
 if (import.meta.main) {
   const testCommands = [
     "rm -rf ~",
