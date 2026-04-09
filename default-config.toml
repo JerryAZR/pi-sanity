@@ -69,16 +69,7 @@ default_action = "allow"
 [commands.rm.positionals]
 default_perm = "delete"
 
-[commands.rm.flags]
-"--force" = { action = "ask", reason = "Force flag bypasses confirmation prompts" }
-
+# dd is blocked by default - rarely needed in development and can be destructive
 [commands.dd]
-default_action = "allow"
-
-[commands.dd.positionals]
-# dd uses key=value syntax, parsed specially
-default_perm = ""
-
-[commands.dd.options]
-"if" = "read"
-"of" = "write"
+default_action = "deny"
+reason = "dd is a low-level disk utility not typically needed in development"
