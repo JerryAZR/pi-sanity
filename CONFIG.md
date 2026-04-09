@@ -15,49 +15,32 @@ Later configs override earlier ones.
 
 ## Part 1: Path Permissions (Read/Write/Delete)
 
-Define path-based rules for the three fundamental operations.
+Define path-based rules for the three fundamental operations: `read`, `write`, and `delete`.
+
+### Example: Read Permissions
+
+This example demonstrates the override behavior (last match wins):
 
 ```toml
 [permissions.read]
 default = "allow"
 
+# First override: hidden files in home require confirmation
 [[permissions.read.overrides]]
-path = [
-    "{{HOME}}/.ssh/**",
-    "{{HOME}}/.aws/**",
-    "$KUBECONFIG",
-    "{{CWD}}/.env*"
-]
-action = "deny"
+path = ["{{HOME}}/.*"]
+action = "ask"
 
-[permissions.write]
-default = "ask"
-
-[[permissions.write.overrides]]
-path = [
-    "{{CWD}}/**",
-    "{{TMPDIR}}/**",
-    "$VIRTUAL_ENV/**"
-]
-action = "allow"
-
-[[permissions.write.overrides]]
-path = [
-    "{{CWD}}/.git/**",
-    "{{CWD}}/.pi-agent/**"
-]
-action = "deny"
-
-[permissions.delete]
-default = "deny"
-
-[[permissions.delete.overrides]]
-path = [
-    "{{CWD}}/build/**",
-    "{{TMPDIR}}/pi-agent-scratch/**"
-]
+# Second override: but public keys are safe (overrides the hidden rule above)
+[[permissions.read.overrides]]
+path = ["{{HOME}}/.ssh/*.pub"]
 action = "allow"
 ```
+
+With this config:
+- `~/.bashrc` → **ask** (matches first override)
+- `~/.ssh/id_rsa` → **ask** (matches first override, not a .pub file)
+- `~/.ssh/id_rsa.pub` → **allow** (matches second override, last match wins)
+- `/etc/passwd` → **allow** (default, no override matches)
 
 ### Schema
 
@@ -83,15 +66,17 @@ action = "allow"
 | Variable | Expands To |
 |----------|-----------|
 | `{{HOME}}` | User's home directory (`os.homedir()`) |
-| `{{CWD}}` | Current working directory / project root |
+| `{{CWD}}` | Current working directory |
 | `{{TMPDIR}}` | System temp directory (`os.tmpdir()`) |
 | `$ENV_VAR` | Value of environment variable |
 
 Variables are expanded before glob matching.
 
+**Note on `{{CWD}}`:** This is the current working directory where the command runs. For git repository root detection, use a pre-check on the `PWD` environment variable with a `!glob` pattern.
+
 #### Glob Patterns
 
-Uses Node.js `path.matchesGlob()` semantics:
+Uses Node.js `path.matchesGlob()` semantics. Patterns are matched as-is after variable substitution.
 
 | Pattern | Matches |
 |---------|---------|
@@ -101,8 +86,9 @@ Uses Node.js `path.matchesGlob()` semantics:
 | `[abc]` | Character class |
 | `{{HOME}}/.ssh/**` | All files in `~/.ssh/` recursively |
 | `{{CWD}}/.env*` | `.env`, `.env.local`, `.env.production`, etc. |
+| `*/` | Directories only (trailing slash in pattern) |
 
-**Trailing slashes:** Patterns match both with and without trailing slash, except when explicitly specified (`*/` requires directory).
+**Note:** Glob matching follows standard rules - a pattern without trailing slash matches both files and directories. Add `/` to the pattern to match directories only.
 
 ---
 
