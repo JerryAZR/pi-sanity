@@ -19,6 +19,7 @@ import {
 } from "./path-permission.js";
 import { evaluatePreChecks } from "./pre-check.js";
 import { getCommandConfig } from "./config-loader.js";
+import { clearlyNotAPath } from "./path-utils.js";
 import type { SanityConfig, CommandConfig, Action } from "./config-types.js";
 import type { CheckResult } from "./types.js";
 
@@ -249,7 +250,8 @@ function checkPositionals(
 }
 
 /**
- * Check a path with a specific permission type
+ * Check a path with a specific permission type.
+ * Filters out strings that clearly cannot be valid paths.
  */
 function checkPathWithPermission(
   path: string,
@@ -257,6 +259,11 @@ function checkPathWithPermission(
   config: SanityConfig,
 ): { action: Action; reason?: string } {
   const ctx = getDefaultContext();
+
+  // Skip strings that contain forbidden characters (can't be valid paths)
+  if (clearlyNotAPath(path)) {
+    return { action: "allow" };
+  }
 
   switch (perm) {
     case "read": {

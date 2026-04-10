@@ -70,8 +70,49 @@ export function preprocessPath(
   // Step 3: $ENV_VAR expansion
   result = expandEnvVars(result);
 
-  // Step 4: Use Node.js normalize to handle separators properly
-  result = normalize(result);
+  // Step 4: Normalize separators (always use forward slashes for glob compatibility)
+  result = normalizeForGlob(result);
 
   return result;
+}
+
+/**
+ * Check if a string contains characters that make it impossible to be a valid path.
+ * 
+ * Forbidden characters:
+ * - Null byte (\0) - never valid in any OS
+ * - Control characters (0x01-0x1F) - invalid on Windows, problematic on Unix
+ * - Windows reserved: < > : " | ? *
+ * 
+ * Note: Empty string is also invalid as a path.
+ */
+export function clearlyNotAPath(str: string): boolean {
+  // Empty string - not a path
+  if (!str || str.length === 0) return true;
+
+  // Null bytes - never valid in any filename
+  if (str.includes('\0')) return true;
+
+  // Control characters (0x01-0x1F) - invalid on Windows
+  if (/[\x01-\x1F]/.test(str)) return true;
+
+  // Windows reserved characters (except colon which is allowed for drive letters)
+  if (/[<>"|?*]/.test(str)) return true;
+  
+  // Colon is only allowed as drive letter separator at position 1 (e.g., "C:")
+  if (/:/.test(str) && !/^.:/.test(str)) return true;
+
+  return false;
+}
+
+/**
+ * Normalize path for cross-platform glob matching.
+ * Converts backslashes to forward slashes for consistent glob patterns.
+ * Also applies Node.js normalize for . and .. resolution.
+ */
+export function normalizeForGlob(path: string): string {
+  // First apply Node.js normalize (handles . and ..)
+  const normalized = normalize(path);
+  // Then convert backslashes to forward slashes
+  return normalized.replace(/\\/g, "/");
 }

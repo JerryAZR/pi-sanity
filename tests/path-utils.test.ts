@@ -139,7 +139,8 @@ describe("path-utils (preprocessor)", () => {
     it("should apply all expansions in order", () => {
       process.env.TEST_PIPELINE = "data";
       const result = preprocessPath("~/$TEST_PIPELINE/{{CWD}}", testContext);
-      const expected = path.normalize(path.join(testContext.home, "data", testContext.cwd));
+      // Result should use forward slashes (normalized for glob compatibility)
+      const expected = "/home/user/data/project";
       assert.strictEqual(result, expected);
       delete process.env.TEST_PIPELINE;
     });
