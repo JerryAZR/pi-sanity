@@ -10,7 +10,7 @@ import {
   checkDelete,
   getDefaultContext,
 } from "../src/path-permission.js";
-import { type PathContext } from "../src/path-utils.js";
+import { normalizeFilePath, type PathContext } from "../src/path-utils.js";
 import { createEmptyConfig } from "../src/config-types.js";
 import type { SanityConfig, PermissionSection } from "../src/config-types.js";
 
@@ -26,31 +26,33 @@ describe("path-permission", () => {
 
   describe("matchesGlob", () => {
     it("should match exact path", () => {
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.txt", testContext), true);
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.txt"), true);
     });
 
     it("should match with * wildcard", () => {
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/*.txt", testContext), true);
-      assert.strictEqual(matchesGlob("/home/user/file.log", "/home/user/*.txt", testContext), false);
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/*.txt"), true);
+      assert.strictEqual(matchesGlob("/home/user/file.log", "/home/user/*.txt"), false);
     });
 
     it("should match with ** wildcard", () => {
-      assert.strictEqual(matchesGlob("/home/user/a/b/c/file.txt", "/home/user/**/*.txt", testContext), true);
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/**/*.txt", testContext), true);
+      assert.strictEqual(matchesGlob("/home/user/a/b/c/file.txt", "/home/user/**/*.txt"), true);
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/**/*.txt"), true);
     });
 
     it("should match with ? wildcard", () => {
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.t?t", testContext), true);
-      assert.strictEqual(matchesGlob("/home/user/file.txxt", "/home/user/file.t?t", testContext), false);
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.t?t"), true);
+      assert.strictEqual(matchesGlob("/home/user/file.txxt", "/home/user/file.t?t"), false);
     });
 
     it("should match hidden files with .*", () => {
-      assert.strictEqual(matchesGlob("/home/user/.bashrc", "/home/user/.*", testContext), true);
-      assert.strictEqual(matchesGlob("/home/user/documents", "/home/user/.*", testContext), false);
+      assert.strictEqual(matchesGlob("/home/user/.bashrc", "/home/user/.*"), true);
+      assert.strictEqual(matchesGlob("/home/user/documents", "/home/user/.*"), false);
     });
 
-    it("should handle Windows-style paths", () => {
-      assert.strictEqual(matchesGlob("C:\\Users\\file.txt", "C:/Users/*.txt", testContext), true);
+    it("should handle Windows-style paths (pre-normalized)", () => {
+      // paths are pre-normalized by normalizeFilePath before calling matchesGlob
+      const windowsPath = normalizeFilePath("C:\\Users\\file.txt", testContext);
+      assert.strictEqual(matchesGlob(windowsPath, "C:/Users/*.txt"), true);
     });
   });
 

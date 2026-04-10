@@ -52,24 +52,16 @@ export function getDefaultContext(): PathContext {
 }
 
 /**
- * Check if a path matches a glob pattern.
+ * Check if a normalized path matches a preprocessed glob pattern.
  * Requires Node.js 22+ for path.matchesGlob
  * 
- * This function:
- * - Normalizes the file path (resolves to absolute, handles . and ..)
- * - Uses the preprocessed pattern (already expanded and normalized by config loader)
+ * Both path and pattern should already be normalized. Patterns are
+ * preprocessed at config load time by config-loader.ts.
  * 
- * @param filePath - The file path to check (will be normalized)
+ * @param normalizedPath - The already-normalized file path
  * @param pattern - The preprocessed glob pattern from config
- * @param context - Path context for normalization
  */
-export function matchesGlob(
-  filePath: string,
-  pattern: string,
-  context: PathContext
-): boolean {
-  const normalizedPath = normalizeFilePath(filePath, context);
-  
+export function matchesGlob(normalizedPath: string, pattern: string): boolean {
   // @ts-ignore - matchesGlob is available in Node 22+
   return path.matchesGlob(normalizedPath, pattern);
 }
@@ -89,10 +81,13 @@ export function checkPathPermission(
     reason: permission.reason,
   };
 
+  // Normalize the file path once before checking
+  const normalizedFilePath = normalizeFilePath(filePath, context);
+
   // Check each override in order (last match wins)
   for (const override of permission.overrides) {
     for (const pattern of override.path) {
-      if (matchesGlob(filePath, pattern, context)) {
+      if (matchesGlob(normalizedFilePath, pattern)) {
         result = {
           action: override.action,
           reason: override.reason,
