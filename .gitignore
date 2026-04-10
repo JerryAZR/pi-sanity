@@ -28,3 +28,7 @@ coverage/
 # Misc
 .env
 .env.local
+src/generated/
+
+# Scripts (keep embed-config.js)
+!scripts/embed-config.js
