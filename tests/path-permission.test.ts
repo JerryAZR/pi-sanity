@@ -1,16 +1,14 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import * as path from "node:path";
 import * as os from "node:os";
 import {
-  matchesGlob,
   checkPathPermission,
   checkRead,
   checkWrite,
   checkDelete,
   getDefaultContext,
 } from "../src/path-permission.js";
-import { normalizeFilePath, type PathContext } from "../src/path-utils.js";
+import { type PathContext } from "../src/path-utils.js";
 import { createEmptyConfig } from "../src/config-types.js";
 import type { SanityConfig, PermissionSection } from "../src/config-types.js";
 
@@ -23,38 +21,6 @@ describe("path-permission", () => {
     repo: "/project",
     tmpdir: "/tmp",
   };
-
-  describe("matchesGlob", () => {
-    it("should match exact path", () => {
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.txt"), true);
-    });
-
-    it("should match with * wildcard", () => {
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/*.txt"), true);
-      assert.strictEqual(matchesGlob("/home/user/file.log", "/home/user/*.txt"), false);
-    });
-
-    it("should match with ** wildcard", () => {
-      assert.strictEqual(matchesGlob("/home/user/a/b/c/file.txt", "/home/user/**/*.txt"), true);
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/**/*.txt"), true);
-    });
-
-    it("should match with ? wildcard", () => {
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.t?t"), true);
-      assert.strictEqual(matchesGlob("/home/user/file.txxt", "/home/user/file.t?t"), false);
-    });
-
-    it("should match hidden files with .*", () => {
-      assert.strictEqual(matchesGlob("/home/user/.bashrc", "/home/user/.*"), true);
-      assert.strictEqual(matchesGlob("/home/user/documents", "/home/user/.*"), false);
-    });
-
-    it("should handle Windows-style paths (pre-normalized)", () => {
-      // paths are pre-normalized by normalizeFilePath before calling matchesGlob
-      const windowsPath = normalizeFilePath("C:\\Users\\file.txt", testContext);
-      assert.strictEqual(matchesGlob(windowsPath, "C:/Users/*.txt"), true);
-    });
-  });
 
   describe("checkPathPermission", () => {
     it("should return default action when no overrides match", () => {
@@ -132,6 +98,30 @@ describe("path-permission", () => {
 
       const result = checkPathPermission("/test/file.txt", permission, testContext);
       assert.strictEqual(result.matchedPattern, "/test/**");
+    });
+
+    it("should match glob wildcards (*, ?, **)", () => {
+      const permission: PermissionSection = {
+        default: "allow",
+        overrides: [
+          { path: ["**/*.txt"], action: "ask", reason: "Text files anywhere" },
+          { path: ["/project/file?.log"], action: "deny", reason: "Log files" },
+          { path: ["/deep/**/*.js"], action: "ask", reason: "JS files anywhere" },
+        ],
+      };
+
+      // * wildcard with **/
+      assert.strictEqual(checkPathPermission("/project/readme.txt", permission, testContext).action, "ask");
+      assert.strictEqual(checkPathPermission("/project/readme.md", permission, testContext).action, "allow");
+
+      // ? wildcard  
+      assert.strictEqual(checkPathPermission("/project/file1.log", permission, testContext).action, "deny");
+      assert.strictEqual(checkPathPermission("/project/file12.log", permission, testContext).action, "allow");
+
+      // ** wildcard
+      assert.strictEqual(checkPathPermission("/deep/a/b/c/test.js", permission, testContext).action, "ask");
+      assert.strictEqual(checkPathPermission("/deep/test.js", permission, testContext).action, "ask");
+      assert.strictEqual(checkPathPermission("/deep/a/b/c/test.ts", permission, testContext).action, "allow");
     });
   });
 
