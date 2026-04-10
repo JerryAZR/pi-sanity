@@ -63,8 +63,7 @@ These involve filesystem state that we do not access at check time:
 - Recursive parsing of `eval`, `bash -c`, or sourced scripts (complex, easy to get wrong)
 
 **We might implement:**
-- Conservative heuristics (e.g., "command contains `$`" → ask)
-- Path normalization for literal `..` segments
+- Conservative heuristics for obfuscation patterns (e.g., command name formed by command substitution)
 - Stripping `command`, `builtin`, and backslash prefixes from command names
 
 **Philosophy:** Pi-sanity catches obvious mistakes (`rm -rf /`, `pip install -g`), not sophisticated attacks. Users who bypass it intentionally are responsible for the consequences.
