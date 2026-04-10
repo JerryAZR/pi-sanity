@@ -17,43 +17,54 @@ import type {
   SanityConfig,
 } from "./config-types.js";
 import { createEmptyConfig } from "./config-types.js";
+import { DEFAULT_CONFIG_CONTENT } from "./generated/default-config.js";
+
+/**
+ * Load a TOML config from a string.
+ * Use this for inline config in tests or programmatic config.
+ */
+export function loadConfigFromString(tomlContent: string): SanityConfig {
+  const parsed = parse(tomlContent) as Partial<SanityConfig>;
+  return mergeConfigs([expandAliases(parsed)]);
+}
+
+/**
+ * Load the embedded default config.
+ * This is embedded at build time by scripts/embed-config.js
+ */
+function loadEmbeddedDefaultConfig(): Partial<SanityConfig> {
+  return parse(DEFAULT_CONFIG_CONTENT) as Partial<SanityConfig>;
+}
 
 /**
  * Load and merge all config files from the hierarchy:
- * 1. Built-in defaults (extension dir)
- * 2. User global config (~/.config/pi/sanity.toml)
- * 3. Project config (.pi-sanity.toml)
+ * 1. Built-in defaults (embedded at build time)
+ * 2. User global config (~/.pi/agent/sanity.toml)
+ * 3. Project config (.pi/sanity.toml)
  *
- * @param extensionDir - Path to extension directory (for built-in defaults)
  * @param projectDir - Path to project root (for project config)
  * @returns Merged SanityConfig
  */
-export function loadConfig(
-  extensionDir: string,
-  projectDir?: string,
-): SanityConfig {
+export function loadConfig(projectDir?: string): SanityConfig {
   const configs: Partial<SanityConfig>[] = [];
 
-  // 1. Built-in defaults
-  const defaultPath = path.join(extensionDir, "default-config.toml");
-  if (fs.existsSync(defaultPath)) {
-    configs.push(expandAliases(loadTomlFile(defaultPath)));
-  }
+  // 1. Built-in defaults (embedded at build time)
+  configs.push(expandAliases(loadEmbeddedDefaultConfig()));
 
-  // 2. User global config
+  // 2. User global config (~/.pi/agent/sanity.toml)
   const userConfigPath = path.join(
     os.homedir(),
-    ".config",
-    "pi",
+    ".pi",
+    "agent",
     "sanity.toml",
   );
   if (fs.existsSync(userConfigPath)) {
     configs.push(expandAliases(loadTomlFile(userConfigPath)));
   }
 
-  // 3. Project config
+  // 3. Project config (.pi/sanity.toml)
   if (projectDir) {
-    const projectConfigPath = path.join(projectDir, ".pi-sanity.toml");
+    const projectConfigPath = path.join(projectDir, ".pi", "sanity.toml");
     if (fs.existsSync(projectConfigPath)) {
       configs.push(expandAliases(loadTomlFile(projectConfigPath)));
     }

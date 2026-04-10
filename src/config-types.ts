@@ -17,6 +17,10 @@ export interface PermissionSection {
   overrides: OverrideRule[];
 }
 
+/**
+ * Environment pre-check (currently the only implemented pre-check type).
+ * User-facing config uses "pre_checks" which may support other types in the future.
+ */
 export interface PreCheck {
   env: string;
   match: string;

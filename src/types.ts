@@ -1,10 +1,11 @@
 /**
- * Action types for sanity checks
+ * Core types for pi-sanity checkers
  */
+
 export type Action = "allow" | "ask" | "deny";
 
 /**
- * Universal check result - action and optional reason
+ * Result from any checker operation
  */
 export interface CheckResult {
   action: Action;

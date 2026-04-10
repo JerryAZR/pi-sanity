@@ -5,7 +5,10 @@
 
 import * as path from "node:path";
 import * as os from "node:os";
+import { preprocessPath, type PathContext } from "./path-utils.js";
 import type { Action, PermissionSection, SanityConfig } from "./config-types.js";
+
+export type { PathContext };
 
 /**
  * Check result for a single path
@@ -14,16 +17,6 @@ export interface PathCheckResult {
   action: Action;
   reason?: string;
   matchedPattern?: string;
-}
-
-/**
- * Context for path expansion
- */
-export interface PathContext {
-  cwd: string;
-  home: string;
-  repo?: string;
-  tmpdir: string;
 }
 
 /**
@@ -36,33 +29,6 @@ export function getDefaultContext(): PathContext {
     tmpdir: os.tmpdir(),
     // repo: detected via git rev-parse --show-toplevel (optional)
   };
-}
-
-/**
- * Expand variables in a pattern
- * Supports: {{HOME}}, {{CWD}}, {{REPO}}, {{TMPDIR}}, $ENV_VAR
- */
-export function expandPattern(
-  pattern: string,
-  context: PathContext
-): string {
-  let result = pattern;
-
-  // Expand {{VAR}} syntax
-  result = result.replace(/\{\{HOME\}\}/g, context.home);
-  result = result.replace(/\{\{CWD\}\}/g, context.cwd);
-  result = result.replace(/\{\{REPO\}\}/g, context.repo ?? context.cwd);
-  result = result.replace(/\{\{TMPDIR\}\}/g, context.tmpdir);
-
-  // Expand $ENV_VAR syntax
-  result = result.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (_match, varName) => {
-    return process.env[varName] ?? `$${varName}`;
-  });
-
-  // Normalize path to remove double slashes
-  result = result.replace(/\/+/g, "/");
-
-  return result;
 }
 
 /**
@@ -85,7 +51,7 @@ export function matchesGlob(filePath: string, pattern: string): boolean {
 export function checkPathPermission(
   filePath: string,
   permission: PermissionSection,
-  context: PathContext
+  context: PathContext,
 ): PathCheckResult {
   // Start with default action
   let result: PathCheckResult = {
@@ -96,7 +62,7 @@ export function checkPathPermission(
   // Check each override in order (last match wins)
   for (const override of permission.overrides) {
     for (const pattern of override.path) {
-      const expandedPattern = expandPattern(pattern, context);
+      const expandedPattern = preprocessPath(pattern, context);
 
       if (matchesGlob(filePath, expandedPattern)) {
         result = {
@@ -118,7 +84,7 @@ export function checkPathPermission(
 export function checkRead(
   filePath: string,
   config: SanityConfig,
-  context?: PathContext
+  context?: PathContext,
 ): PathCheckResult {
   const ctx = context ?? getDefaultContext();
   return checkPathPermission(filePath, config.permissions.read, ctx);
@@ -130,7 +96,7 @@ export function checkRead(
 export function checkWrite(
   filePath: string,
   config: SanityConfig,
-  context?: PathContext
+  context?: PathContext,
 ): PathCheckResult {
   const ctx = context ?? getDefaultContext();
   return checkPathPermission(filePath, config.permissions.write, ctx);
@@ -142,7 +108,7 @@ export function checkWrite(
 export function checkDelete(
   filePath: string,
   config: SanityConfig,
-  context?: PathContext
+  context?: PathContext,
 ): PathCheckResult {
   const ctx = context ?? getDefaultContext();
   return checkPathPermission(filePath, config.permissions.delete, ctx);

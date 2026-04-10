@@ -3,15 +3,14 @@ import assert from "node:assert";
 import * as path from "node:path";
 import * as os from "node:os";
 import {
-  expandPattern,
   matchesGlob,
   checkPathPermission,
   checkRead,
   checkWrite,
   checkDelete,
   getDefaultContext,
-  type PathContext,
 } from "../src/path-permission.js";
+import { type PathContext } from "../src/path-utils.js";
 import { createEmptyConfig } from "../src/config-types.js";
 import type { SanityConfig, PermissionSection } from "../src/config-types.js";
 
@@ -24,50 +23,6 @@ describe("path-permission", () => {
     repo: "/project",
     tmpdir: "/tmp",
   };
-
-  describe("expandPattern", () => {
-    it("should expand {{HOME}}", () => {
-      const result = expandPattern("{{HOME}}/.ssh", testContext);
-      assert.strictEqual(result, "/home/user/.ssh");
-    });
-
-    it("should expand {{CWD}}", () => {
-      const result = expandPattern("{{CWD}}/file.txt", testContext);
-      assert.strictEqual(result, "/project/file.txt");
-    });
-
-    it("should expand {{REPO}}", () => {
-      const result = expandPattern("{{REPO}}/src", testContext);
-      assert.strictEqual(result, "/project/src");
-    });
-
-    it("should expand {{TMPDIR}}", () => {
-      const result = expandPattern("{{TMPDIR}}/cache", testContext);
-      assert.strictEqual(result, "/tmp/cache");
-    });
-
-    it("should expand $ENV_VAR", () => {
-      process.env.TEST_VAR = "/test/path";
-      const result = expandPattern("$TEST_VAR/file", testContext);
-      assert.strictEqual(result, "/test/path/file");
-      delete process.env.TEST_VAR;
-    });
-
-    it("should expand multiple variables", () => {
-      const result = expandPattern("{{HOME}}/{{CWD}}/file", testContext);
-      assert.strictEqual(result, "/home/user/project/file");
-    });
-
-    it("should leave unknown variables unchanged", () => {
-      const result = expandPattern("{{UNKNOWN}}/file", testContext);
-      assert.strictEqual(result, "{{UNKNOWN}}/file");
-    });
-
-    it("should handle patterns without variables", () => {
-      const result = expandPattern("/etc/passwd", testContext);
-      assert.strictEqual(result, "/etc/passwd");
-    });
-  });
 
   describe("matchesGlob", () => {
     it("should match exact path", () => {
