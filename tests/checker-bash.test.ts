@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { checkBash, loadConfig, loadConfigFromString } from "../src/index.js";
+import { checkBash, loadConfig, loadDefaultConfig, loadConfigFromString } from "../src/index.js";
+import * as os from "node:os";
 
 describe("checkBash (public API)", () => {
   describe("with inline config (unit tests)", () => {
@@ -193,60 +194,125 @@ default = "ask"
     });
   });
 
-  describe("with default config (e2e-ish)", () => {
-    it("should use default config for common commands", () => {
-      const config = loadConfig();
-
-      // Test various commands against default config
-      const echoResult = checkBash("echo hello", config);
-      const catResult = checkBash("cat file.txt", config);
-      const rmResult = checkBash("rm file.txt", config);
-
-      // Just verify they return valid actions
-      for (const result of [echoResult, catResult, rmResult]) {
-        assert.ok(["allow", "ask", "deny"].includes(result.action));
-      }
+  describe("with default config (deterministic tests)", () => {
+    it("should allow echo (no file operations)", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("echo hello", config);
+      assert.strictEqual(result.action, "allow");
     });
 
-    it("should handle complex real-world commands", () => {
-      const config = loadConfig();
+    it("should allow cat with readable file", () => {
+      const config = loadDefaultConfig();
+      // {{CWD}}/file should be allowed by default write overrides
+      const result = checkBash("cat /project/file.txt", config);
+      assert.strictEqual(result.action, "allow");
+    });
 
-      // Complex pipeline
-      const pipeline = checkBash("cat file.txt | grep pattern | head -10", config);
-      assert.ok(["allow", "ask", "deny"].includes(pipeline.action));
+    it("should ask for hidden files in home", () => {
+      const config = loadDefaultConfig();
+      // {{HOME}}/.bashrc matches read override that asks
+      const home = os.homedir().replace(/\\/g, "/");
+      const result = checkBash(`cat ${home}/.bashrc`, config);
+      assert.strictEqual(result.action, "ask");
+    });
 
-      // Command with redirects
-      const redirect = checkBash("cat < input.txt > output.txt", config);
-      assert.ok(["allow", "ask", "deny"].includes(redirect.action));
+    it("should allow reading public ssh keys", () => {
+      const config = loadDefaultConfig();
+      // {{HOME}}/.ssh/*.pub is explicitly allowed
+      const home = os.homedir().replace(/\\/g, "/");
+      const result = checkBash(`cat ${home}/.ssh/id_rsa.pub`, config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should ask before rm by default", () => {
+      const config = loadDefaultConfig();
+      // rm has default_action = "allow" in default config, but positionals
+      // use "delete" permission which defaults to "ask"
+      const result = checkBash("rm file.txt", config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should deny rm --force", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("rm --force file.txt", config);
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should deny npm global install", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("npm install -g package", config);
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should allow npm local install", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("npm install package", config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should deny pip outside virtualenv", () => {
+      const config = loadDefaultConfig();
+      // Delete VIRTUAL_ENV to simulate no venv
+      const oldVenv = process.env.VIRTUAL_ENV;
+      delete process.env.VIRTUAL_ENV;
+      const result = checkBash("pip install package", config);
+      process.env.VIRTUAL_ENV = oldVenv;
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should deny dd (blocked command)", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("dd if=/dev/zero of=/dev/null", config);
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should allow writing to temp directory", () => {
+      const config = loadDefaultConfig();
+      // Use actual temp path that will match {{TMPDIR}} pattern
+      const tmpDir = os.tmpdir().replace(/\\/g, "/");
+      const result = checkBash(`echo test > ${tmpDir}/output.txt`, config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should allow writing to CWD", () => {
+      const config = loadDefaultConfig();
+      // Use actual cwd that will match {{CWD}} pattern
+      const cwd = process.cwd().replace(/\\/g, "/");
+      const result = checkBash(`echo test > ${cwd}/output.txt`, config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should handle pipelines with default config", () => {
+      const config = loadDefaultConfig();
+      // Pipeline of allowed commands
+      const result = checkBash("cat file.txt | grep pattern", config);
+      assert.strictEqual(result.action, "allow");
     });
   });
 
   describe("edge cases", () => {
-    it("should handle empty command", () => {
-      const config = loadConfigFromString(`
-[commands._]
-default_action = "allow"
-`);
+    it("should allow empty command", () => {
+      const config = loadDefaultConfig();
       const result = checkBash("", config);
-      assert.ok(["allow", "ask", "deny"].includes(result.action));
+      assert.strictEqual(result.action, "allow");
     });
 
-    it("should handle command with only whitespace", () => {
-      const config = loadConfigFromString(`
-[commands._]
-default_action = "allow"
-`);
+    it("should allow whitespace-only command", () => {
+      const config = loadDefaultConfig();
       const result = checkBash("   ", config);
-      assert.ok(["allow", "ask", "deny"].includes(result.action));
+      assert.strictEqual(result.action, "allow");
     });
 
-    it("should handle subshells", () => {
-      const config = loadConfigFromString(`
-[commands._]
-default_action = "allow"
-`);
-      const result = checkBash("(cd /tmp && rm file)", config);
-      assert.ok(["allow", "ask", "deny"].includes(result.action));
+    it("should handle subshells with default config", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("(cd /tmp && echo hello)", config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should handle multiple commands in pipeline", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("cat a.txt | grep x | wc -l", config);
+      assert.strictEqual(result.action, "allow");
     });
   });
 });

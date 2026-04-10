@@ -7,6 +7,35 @@
 default_action = "allow"
 reason = "Unknown commands default to allow (low-friction)"
 
+# Common read commands
+[commands.cat]
+default_action = "allow"
+
+[commands.cat.positionals]
+default_perm = "read"
+
+[commands.head]
+default_action = "allow"
+
+[commands.head.positionals]
+default_perm = "read"
+
+[commands.tail]
+default_action = "allow"
+
+[commands.tail.positionals]
+default_perm = "read"
+
+[commands.grep]
+default_action = "allow"
+
+[commands.grep.positionals]
+default_perm = "read"
+
+# echo doesn't access files, but may have output redirects
+[commands.echo]
+default_action = "allow"
+
 [permissions.read]
 default = "allow"
 
@@ -73,6 +102,10 @@ default_action = "allow"
 
 [commands.rm.positionals]
 default_perm = "delete"
+
+[commands.rm.flags]
+"--force" = { action = "deny", reason = "Force flag bypasses confirmation" }
+"-f" = { action = "deny", reason = "Force flag bypasses confirmation" }
 
 # dd is blocked by default - rarely needed in development and can be destructive
 [commands.dd]

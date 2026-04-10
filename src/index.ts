@@ -6,7 +6,7 @@
  */
 
 // Config loading
-export { loadConfig, loadConfigFromString } from "./config-loader.js";
+export { loadConfig, loadConfigFromString, loadDefaultConfig } from "./config-loader.js";
 export { createEmptyConfig } from "./config-types.js";
 export type { SanityConfig, Action, CommandConfig } from "./config-types.js";
 

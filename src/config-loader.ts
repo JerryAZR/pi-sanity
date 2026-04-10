@@ -37,6 +37,15 @@ function loadEmbeddedDefaultConfig(): Partial<SanityConfig> {
 }
 
 /**
+ * Load only the built-in default configuration.
+ * Does not load user global or project configs.
+ * Useful for testing or when you want guaranteed defaults.
+ */
+export function loadDefaultConfig(): SanityConfig {
+  return mergeConfigs([expandAliases(loadEmbeddedDefaultConfig())]);
+}
+
+/**
  * Load and merge all config files from the hierarchy:
  * 1. Built-in defaults (embedded at build time)
  * 2. User global config (~/.pi/agent/sanity.toml)
