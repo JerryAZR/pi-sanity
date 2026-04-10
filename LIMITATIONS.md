@@ -26,7 +26,7 @@ These patterns can hide the actual command being executed from our parser:
 
 ## Dynamic Execution
 
-These commands execute other commands or scripts:
+These commands execute other commands, scripts, or arbitrary code:
 
 | Pattern | Example | Why Not Fixed |
 |---------|---------|---------------|
@@ -35,23 +35,26 @@ These commands execute other commands or scripts:
 | `source` / `.` | `source /tmp/script.sh` | Would need to parse and check the sourced file |
 | Script execution | `./script.sh` | Would need to parse arbitrary script files |
 | `exec` | `exec rm file` | Would need to strip `exec` and check the subcommand |
+| `python -c` | `python -c 'import os; os.remove("/etc/passwd")'` | Arbitrary code execution in another language |
+| `node -e` | `node -e 'require("fs").unlinkSync("/etc/passwd")'` | Same as above |
+| `ruby -e` | `ruby -e 'File.delete("/etc/passwd")'` | Same as above |
+| `perl -e` | `perl -e 'unlink "/etc/passwd"'` | Same as above |
 
-**Why we allow these:** `find -exec`, `xargs`, and `source` are common in build scripts and deployment workflows.
+**Why we allow these:** `find -exec`, `xargs`, `source`, and language interpreters are common in build scripts and deployment workflows. Checking `python -c` would require parsing Python.
 
 ---
 
 ## Path Resolution
 
-These involve filesystem state that we do not access at check time:
+These involve runtime state that may differ from check time:
 
 | Pattern | Example | Why Not Fixed |
 |---------|---------|---------------|
 | Symlinks | `rm ~/link-to-secret` | Intentional: if user created link in allowed path, they likely want to treat it as part of that path |
-| Path traversal | `rm /safe/../../etc/passwd` | Would need `path.normalize()` - trivial to add if needed |
-| Environment variables | `rm $SECRET_DIR/file` | Variables can change between check time and execution time |
+| Environment variables in paths | `rm $SECRET_DIR/file` | Variables can change between check time and execution time |
 | Process substitution | `cat <(cat /etc/passwd)` | Inner command runs in subprocess; would need recursive check |
 
-**Why we allow these:** Symlinks in allowed paths are usually intentional - the user created them there for a reason. Resolving them to their targets would break legitimate workflows. Environment variables may change between check time and execution time.
+**Why we allow these:** All paths are normalized and resolved to absolute before checking, so literal `..` segments are handled. Symlinks in allowed paths are usually intentional. Environment variables may change between check time and execution time.
 
 ---
 
