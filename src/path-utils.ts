@@ -1,50 +1,77 @@
 /**
- * Path utility functions using Node.js built-in modules
+ * Path preprocessing utilities
+ * Expands tildes, variables, and normalizes paths
+ * No checking logic - pure preprocessing only
  */
 
-import { resolve, relative, sep } from "node:path";
-import { tmpdir } from "node:os";
+import { normalize } from "node:path";
 
-const SYSTEM_TEMP = tmpdir().toLowerCase();
-
-/** Check if path is inside parent (descendant, not equal) */
-export function isInside(path: string, parent: string): boolean {
-  const rel = relative(resolve(parent), resolve(path));
-  return !rel.startsWith('..') && rel !== '';
+export interface PathContext {
+  cwd: string;
+  home: string;
+  repo?: string;
+  tmpdir: string;
 }
 
-/** Check if path is temp directory or inside it */
-export function isTemp(path: string): boolean {
-  const rel = relative(SYSTEM_TEMP, resolve(path));
-  return !rel.startsWith('..') && rel !== '';
-}
+/**
+ * Regex to match ~ at end-of-string OR followed by path separator
+ * Matches: "~", "~/...", "~\..."
+ * Does NOT match: "~user", "abc~def"
+ */
+const TILDE_REGEX = /^~(?=$|[/\\])/;
 
-/** Check if path is a hidden file/directory in home (relative path starts with .) */
-export function isHomeHidden(path: string, homeDir: string): boolean {
-  const rel = relative(resolve(homeDir), resolve(path));
-  // Hidden if relative path starts with . but not .. (which means outside home)
-  return rel.startsWith('.') && !rel.startsWith('..');
-}
-
-/** Check if file is a public key (safe to read) */
-export function isPublicKeyFile(path: string): boolean {
-  const lower = path.toLowerCase();
-  return lower.endsWith('.pub') || lower.endsWith('.asc');
-}
-
-/** Check if write target is protected (.git/) */
-export function isGitPath(path: string): boolean {
-  const lower = resolve(path).toLowerCase();
-  return lower.includes(sep + '.git' + sep) || lower.endsWith(sep + '.git');
-}
-
-/** Expand ~ to home directory */
+/**
+ * Expand ~ to home directory
+ * Handles: "~", "~/file", "~\file"
+ */
 export function expandTilde(path: string, homeDir: string): string {
-  if (path.startsWith('~/')) {
-    return path.replace('~/', homeDir + sep);
-  }
-  if (path === '~') {
-    return homeDir;
-  }
-  return path;
+  return path.replace(TILDE_REGEX, homeDir);
+}
+
+/**
+ * Expand {{VAR}} syntax: {{HOME}}, {{CWD}}, {{REPO}}, {{TMPDIR}}
+ */
+export function expandBraces(pattern: string, context: PathContext): string {
+  return pattern
+    .replace(/\{\{HOME\}\}/g, context.home)
+    .replace(/\{\{CWD\}\}/g, context.cwd)
+    .replace(/\{\{REPO\}\}/g, context.repo ?? context.cwd)
+    .replace(/\{\{TMPDIR\}\}/g, context.tmpdir);
+}
+
+/**
+ * Expand $ENV_VAR syntax
+ */
+export function expandEnvVars(pattern: string): string {
+  return pattern.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (_match, varName) => {
+    return process.env[varName] ?? `$${varName}`;
+  });
+}
+
+/**
+ * Full path preprocessing pipeline:
+ * 1. Expand tildes (~)
+ * 2. Expand {{VARS}}
+ * 3. Expand $ENV_VARS
+ * 4. Normalize path separators
+ */
+export function preprocessPath(
+  pattern: string,
+  context: PathContext,
+): string {
+  let result = pattern;
+
+  // Step 1: Tilde expansion
+  result = expandTilde(result, context.home);
+
+  // Step 2: {{VAR}} expansion
+  result = expandBraces(result, context);
+
+  // Step 3: $ENV_VAR expansion
+  result = expandEnvVars(result);
+
+  // Step 4: Use Node.js normalize to handle separators properly
+  result = normalize(result);
+
+  return result;
 }
