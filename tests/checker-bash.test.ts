@@ -224,18 +224,20 @@ default = "ask"
       assert.strictEqual(result.action, "allow");
     });
 
-    it("should ask before rm by default", () => {
+    it("should allow rm for files in cwd", () => {
       const config = loadDefaultConfig();
-      // rm has default_action = "allow" in default config, but positionals
-      // use "delete" permission which defaults to "ask"
+      // {{CWD}}/** has delete override "allow"
+      // Using relative path which resolves to CWD
       const result = checkBash("rm file.txt", config);
-      assert.strictEqual(result.action, "ask");
+      assert.strictEqual(result.action, "allow");
     });
 
-    it("should deny rm --force", () => {
+    it("should allow rm --force for files in cwd (no special flag handling)", () => {
       const config = loadDefaultConfig();
+      // No --force flag rule in default config
+      // Path is in CWD which is allowed for delete
       const result = checkBash("rm --force file.txt", config);
-      assert.strictEqual(result.action, "deny");
+      assert.strictEqual(result.action, "allow");
     });
 
     it("should deny npm global install", () => {

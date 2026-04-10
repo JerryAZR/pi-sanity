@@ -103,10 +103,6 @@ default_action = "allow"
 [commands.rm.positionals]
 default_perm = "delete"
 
-[commands.rm.flags]
-"--force" = { action = "deny", reason = "Force flag bypasses confirmation" }
-"-f" = { action = "deny", reason = "Force flag bypasses confirmation" }
-
 # dd is blocked by default - rarely needed in development and can be destructive
 [commands.dd]
 default_action = "deny"

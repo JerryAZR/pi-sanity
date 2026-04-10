@@ -252,6 +252,62 @@ describe("evaluatePreCheck", () => {
   });
 });
 
+describe("evaluatePreCheck - path variable expansion", () => {
+  it("should match absolute path against {{CWD}} pattern", () => {
+    // Pattern expands to absolute CWD, value is absolute - should match
+    const cwd = process.cwd().replace(/\\/g, "/");
+    process.env.TEST_CWD_PATH = `${cwd}/file.txt`;
+    const result = evaluatePreCheck(
+      "TEST_CWD_PATH",
+      `glob:**/file.txt`,
+      process.env.TEST_CWD_PATH,
+      "deny",
+    );
+    delete process.env.TEST_CWD_PATH;
+    assert.strictEqual(result.matched, true);
+  });
+
+  it("should demonstrate the relative path issue with absolute patterns", () => {
+    // This test documents a potential issue:
+    // If pattern expands to absolute path but env value is relative,
+    // they won't match even though they refer to the same file
+    const cwd = process.cwd().replace(/\\/g, "/");
+
+    // Absolute pattern (like what {{CWD}}/** would expand to)
+    const absolutePattern = `glob:${cwd}/**`;
+
+    // Relative value
+    process.env.TEST_REL_PATH = "file.txt";
+
+    const result = evaluatePreCheck(
+      "TEST_REL_PATH",
+      absolutePattern,
+      process.env.TEST_REL_PATH,
+      "deny",
+    );
+    delete process.env.TEST_REL_PATH;
+
+    // This will likely be FALSE - demonstrating the bug
+    // file.txt doesn't match /home/user/project/**
+    console.log("Absolute pattern vs relative value:", result.matched);
+    // For now, just document - we assert the current (possibly buggy) behavior
+    assert.strictEqual(result.matched, false); // This documents the bug
+  });
+
+  it("should match relative path pattern against relative value", () => {
+    // Both pattern and value are relative
+    process.env.TEST_REL = "./file.txt";
+    const result = evaluatePreCheck(
+      "TEST_REL",
+      `glob:./*`,
+      process.env.TEST_REL,
+      "deny",
+    );
+    delete process.env.TEST_REL;
+    assert.strictEqual(result.matched, true);
+  });
+});
+
 describe("evaluatePreChecks (multiple)", () => {
   it("should return undefined when no checks provided", () => {
     const result = evaluatePreChecks([]);

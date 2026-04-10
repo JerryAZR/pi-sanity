@@ -52,6 +52,20 @@ export function getDefaultContext(): PathContext {
 }
 
 /**
+ * Normalize a file path for glob matching.
+ * Resolves relative paths to absolute and normalizes separators.
+ */
+function normalizeFilePath(filePath: string, context: PathContext): string {
+  // Resolve relative paths to absolute
+  const resolved = path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(context.cwd, filePath);
+
+  // Normalize separators for cross-platform matching
+  return resolved.replace(/\\/g, "/");
+}
+
+/**
  * Check if a path matches a glob pattern
  * Requires Node.js 22+ for path.matchesGlob
  */
@@ -79,12 +93,15 @@ export function checkPathPermission(
     reason: permission.reason,
   };
 
+  // Normalize the file path (resolve relative to absolute)
+  const normalizedFilePath = normalizeFilePath(filePath, context);
+
   // Check each override in order (last match wins)
   for (const override of permission.overrides) {
     for (const pattern of override.path) {
       const expandedPattern = preprocessPath(pattern, context);
 
-      if (matchesGlob(filePath, expandedPattern)) {
+      if (matchesGlob(normalizedFilePath, expandedPattern)) {
         result = {
           action: override.action,
           reason: override.reason,
