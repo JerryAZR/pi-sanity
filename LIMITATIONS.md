@@ -46,12 +46,12 @@ These involve filesystem state that we do not access at check time:
 
 | Pattern | Example | Why Not Fixed |
 |---------|---------|---------------|
-| Symlinks | `rm ~/link-to-secret` | Would need `fs.realpath()` - requires filesystem access |
+| Symlinks | `rm ~/link-to-secret` | Intentional: if user created link in allowed path, they likely want to treat it as part of that path |
 | Path traversal | `rm /safe/../../etc/passwd` | Would need `path.normalize()` - trivial to add if needed |
 | Environment variables | `rm $SECRET_DIR/file` | Variables can change between check time and execution time |
 | Process substitution | `cat <(cat /etc/passwd)` | Inner command runs in subprocess; would need recursive check |
 
-**Why we allow these:** Resolving symlinks and env vars at check time may not match runtime values. The user may create/delete symlinks or change environment variables after our check runs.
+**Why we allow these:** Symlinks in allowed paths are usually intentional - the user created them there for a reason. Resolving them to their targets would break legitimate workflows. Environment variables may change between check time and execution time.
 
 ---
 
