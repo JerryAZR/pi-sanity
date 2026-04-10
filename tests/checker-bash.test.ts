@@ -146,6 +146,12 @@ default_action = "allow"
 [commands._]
 default_action = "allow"
 
+[commands.cat]
+default_action = "allow"
+
+[commands.cat.positionals]
+default_perm = "read"
+
 [permissions.read]
 default = "deny"
 
@@ -166,6 +172,13 @@ action = "allow"
       const config = loadConfigFromString(`
 [commands._]
 default_action = "allow"
+
+[commands.cp]
+default_action = "allow"
+
+[commands.cp.positionals]
+default_perm = "read"
+overrides = { "-1" = "write" }
 
 [permissions.write]
 default = "ask"
