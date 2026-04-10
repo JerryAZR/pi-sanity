@@ -4,7 +4,7 @@
  * No checking logic - pure preprocessing only
  */
 
-import { normalize } from "node:path";
+import { normalize, resolve, isAbsolute } from "node:path";
 
 export interface PathContext {
   cwd: string;
@@ -53,7 +53,9 @@ export function expandEnvVars(pattern: string): string {
  * 1. Expand tildes (~)
  * 2. Expand {{VARS}}
  * 3. Expand $ENV_VARS
- * 4. Normalize path separators
+ * 4. Normalize path (using Node.js normalize for . and .. handling)
+ * 
+ * Note: Does NOT convert separators. matchesGlob handles both / and \.
  */
 export function preprocessPath(
   pattern: string,
@@ -70,10 +72,25 @@ export function preprocessPath(
   // Step 3: $ENV_VAR expansion
   result = expandEnvVars(result);
 
-  // Step 4: Normalize separators (always use forward slashes for glob compatibility)
-  result = normalizeForGlob(result);
+  // Step 4: Normalize (handles . and .. but preserves platform separators)
+  result = normalize(result);
 
   return result;
+}
+
+/**
+ * Normalize a file path for checking against patterns.
+ * Resolves relative paths to absolute and normalizes using Node.js normalize().
+ * Preserves platform-native separators - matchesGlob handles both / and \.
+ */
+export function normalizeFilePath(filePath: string, context: PathContext): string {
+  // Resolve relative paths to absolute
+  const resolved = isAbsolute(filePath)
+    ? filePath
+    : resolve(context.cwd, filePath);
+
+  // Normalize (handles . and .. but preserves platform separators)
+  return normalize(resolved);
 }
 
 /**
@@ -103,16 +120,4 @@ export function clearlyNotAPath(str: string): boolean {
   if (/:/.test(str) && !/^.:/.test(str)) return true;
 
   return false;
-}
-
-/**
- * Normalize path for cross-platform glob matching.
- * Converts backslashes to forward slashes for consistent glob patterns.
- * Also applies Node.js normalize for . and .. resolution.
- */
-export function normalizeForGlob(path: string): string {
-  // First apply Node.js normalize (handles . and ..)
-  const normalized = normalize(path);
-  // Then convert backslashes to forward slashes
-  return normalized.replace(/\\/g, "/");
 }

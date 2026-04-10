@@ -6,7 +6,7 @@
 import * as path from "node:path";
 import * as os from "node:os";
 import { execSync } from "node:child_process";
-import { preprocessPath, type PathContext } from "./path-utils.js";
+import { preprocessPath, normalizeFilePath, type PathContext } from "./path-utils.js";
 import type { Action, PermissionSection, SanityConfig } from "./config-types.js";
 
 export type { PathContext };
@@ -53,29 +53,21 @@ export function getDefaultContext(): PathContext {
 
 /**
  * Normalize a file path for glob matching.
- * Resolves relative paths to absolute and normalizes separators.
+ * Resolves relative paths to absolute and normalizes.
+ * Re-exported from path-utils.
  */
-function normalizeFilePath(filePath: string, context: PathContext): string {
-  // Resolve relative paths to absolute
-  const resolved = path.isAbsolute(filePath)
-    ? filePath
-    : path.resolve(context.cwd, filePath);
-
-  // Normalize separators for cross-platform matching
-  return resolved.replace(/\\/g, "/");
-}
+export { normalizeFilePath } from "./path-utils.js";
 
 /**
  * Check if a path matches a glob pattern
  * Requires Node.js 22+ for path.matchesGlob
+ * 
+ * Note: matchesGlob handles both / and \ interchangeably, so no
+ * manual normalization is needed before calling it.
  */
 export function matchesGlob(filePath: string, pattern: string): boolean {
-  // Normalize paths for cross-platform matching
-  const normalizedPath = filePath.replace(/\\/g, "/");
-  const normalizedPattern = pattern.replace(/\\/g, "/");
-
   // @ts-ignore - matchesGlob is available in Node 22+
-  return path.matchesGlob(normalizedPath, normalizedPattern);
+  return path.matchesGlob(filePath, pattern);
 }
 
 /**

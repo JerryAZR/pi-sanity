@@ -1,0 +1,4 @@
+{"version":1}
+{"index":"1","parentIndex":"root","title":"Fix failing tests after clearlyNotAPath implementation","description":"Issue: On Windows, path separator mismatch between test (forward slashes) and context (backslashes) causes glob matching to fail. Need to ensure consistent path normalization.","completed":true,"deleted":false}
+{"index":"2","parentIndex":"root","title":"Add tests for clearlyNotAPath filtering","completed":false,"deleted":false}
+{"index":"3","parentIndex":"root","title":"Complete pi integration layer (extension.ts)","completed":false,"deleted":false}
