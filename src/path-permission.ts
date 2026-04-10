@@ -5,6 +5,7 @@
 
 import * as path from "node:path";
 import * as os from "node:os";
+import { execSync } from "node:child_process";
 import { preprocessPath, type PathContext } from "./path-utils.js";
 import type { Action, PermissionSection, SanityConfig } from "./config-types.js";
 
@@ -20,14 +21,33 @@ export interface PathCheckResult {
 }
 
 /**
- * Get default path context using system values
+ * Detect git repository root using `git rev-parse --show-toplevel`.
+ * Returns undefined if not in a git repository or git is not available.
+ */
+function detectRepo(): string | undefined {
+  try {
+    const result = execSync("git rev-parse --show-toplevel", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"], // Suppress stderr
+      timeout: 1000, // 1 second timeout
+    });
+    return result.trim() || undefined;
+  } catch {
+    // Not in git repo, git not installed, or command failed
+    return undefined;
+  }
+}
+
+/**
+ * Get default path context using system values.
+ * Attempts to detect git repo, falls back to cwd.
  */
 export function getDefaultContext(): PathContext {
   return {
     cwd: process.cwd(),
     home: os.homedir(),
     tmpdir: os.tmpdir(),
-    // repo: detected via git rev-parse --show-toplevel (optional)
+    repo: detectRepo(),
   };
 }
 

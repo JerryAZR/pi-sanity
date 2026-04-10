@@ -191,7 +191,8 @@ describe("path-permission", () => {
       assert.strictEqual(context.cwd, process.cwd());
       assert.strictEqual(context.home, os.homedir());
       assert.strictEqual(context.tmpdir, os.tmpdir());
-      assert.strictEqual(context.repo, undefined); // Not detected by default
+      // repo is auto-detected via git, or undefined if not in repo
+      assert.ok(typeof context.repo === "string" || context.repo === undefined);
     });
   });
 });

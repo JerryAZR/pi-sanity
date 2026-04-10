@@ -110,12 +110,20 @@ if (result.action === "deny") {
 
 ### Data flows Integration → Core
 
-Integration provides context:
+Core auto-detects all context (HOME, TMPDIR, CWD, REPO via git). Integration can override if needed:
 
 ```typescript
-// Integration loads config and provides paths:
+// Core auto-detects everything:
 const config = loadConfig();
-const result = checkWrite(filePath, config);
+const result = checkWrite(filePath, config); // Uses auto-detected context
+
+// Integration can override context (optional):
+const result = checkWrite(filePath, config, {
+  cwd: process.cwd(),
+  home: os.homedir(),
+  tmpdir: os.tmpdir(),
+  repo: "/custom/repo/path" // Override git detection
+});
 ```
 
 ### No reverse dependencies
