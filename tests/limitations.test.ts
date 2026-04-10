@@ -24,15 +24,25 @@ describeLimitations("Known Limitations (expected failures)", () => {
 
   describe("Command Obfuscation", () => {
     it("should detect command substitution: $(echo rm) file", () => {
+      // HARD TO FIX - See IMPLEMENTATION_NOTES.md#command-substitution
       // Currently: walkBash sees this as a command with args, doesn't expand $(echo rm)
       // Should: detect that $(echo rm) evaluates to "rm" and apply rm rules
+      //
+      // unbash DOES parse command substitution and exposes inner AST via "CommandExpansion" nodes
+      // with a nested "script" property. The challenge is:
+      // 1. CommandExpansion can appear anywhere (command name, args, etc.)
+      // 2. We need to recursively walk the inner script
+      // 3. Aggregate results from both outer and inner commands
+      // 4. Handle nested substitutions: $(echo $(rm /))
+      // 5. Inner commands need full permission checking too
       const result = checkBash("$(echo rm) file.txt", config);
       // Currently returns "allow" (wrong) - should be "ask" for delete
       assert.strictEqual(result.action, "ask", "Command substitution should be expanded and checked");
     });
 
     it("should detect backtick substitution: `which rm` file", () => {
-      // Same issue - backticks not expanded
+      // HARD TO FIX - Same as above, unbash uses same "CommandExpansion" AST node
+      // Backticks are legacy but parsed identically to $()
       const result = checkBash("`which rm` file.txt", config);
       assert.strictEqual(result.action, "ask", "Backtick substitution should be expanded and checked");
     });
