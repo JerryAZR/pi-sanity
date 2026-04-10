@@ -6,8 +6,12 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc",
+    "embed-config": "node scripts/embed-config.js",
+    "build": "npm run embed-config && tsc",
     "test": "npm run build && node run-tests.js",
     "check": "tsc --noEmit"
   },

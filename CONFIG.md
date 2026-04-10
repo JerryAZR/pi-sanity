@@ -5,9 +5,9 @@
 Configuration controls **what actions to take** when checks are triggered. Command definitions control **which paths to check** and **environment pre-conditions**.
 
 **Configuration hierarchy (all merged):**
-1. **Built-in defaults** - shipped with extension (see `default-config.toml`)
-2. **User global config** - `~/.config/pi/sanity.toml`
-3. **Project config** - `.pi-sanity.toml` in project root
+1. **Built-in defaults** - shipped with extension (embedded at build time)
+2. **User global config** - `~/.pi/agent/sanity.toml`
+3. **Project config** - `.pi/sanity.toml`
 
 Later configs **merge** with earlier ones, appending arrays and overriding scalars. Since "last match wins" for path overrides, project rules naturally take priority while keeping base protections.
 
@@ -183,14 +183,25 @@ reason = "Optional explanation"
 
 #### Match Syntax
 
-| Prefix | Meaning |
-|--------|---------|
-| (none) | Exact string match |
-| `glob:` | Glob pattern match |
-| `re:` | Regular expression match |
-| `!` | Negate the match (e.g., `!glob:{{CWD}}/**`) |
+The `match` field uses a structured prefix system. The **colon (`:`) is required** for all prefix parsing.
 
-Multiple pre-checks are evaluated, **strictest action wins**.
+| Pattern | Meaning |
+|---------|---------|
+| `value` or `:value` | Exact string match (leading `:` is optional and stripped) |
+| `!value` | Exact match of literal `"!value"` (no colon = literal `!`) |
+| `!:value` | NOT `value` (negated exact match) |
+| `::value` | Exact match of literal `":value"` (escape leading colon) |
+| `glob:pattern` | Glob pattern match |
+| `!glob:pattern` | NOT matching glob pattern |
+| `re:pattern` | Regular expression match |
+| `!re:pattern` | NOT matching regex pattern |
+
+**Key Rules:**
+- **Colon required:** `!pattern` (no colon) = literal `"!pattern"`, not negation
+- **Negation:** Must use `!:`, `!glob:`, or `!re:` (colon required)
+- **Misspelled types:** `typo:pattern` → exact match of literal `"typo:pattern"` (unrecognized type names are treated as part of the pattern)
+
+Multiple pre-checks are evaluated, **strictest action wins** (`deny` > `ask` > `allow`).
 
 **Note on environment variables:** Unset variables and empty strings (`""`) are treated as equivalent for matching purposes.
 
