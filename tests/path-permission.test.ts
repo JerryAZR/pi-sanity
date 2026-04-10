@@ -26,31 +26,31 @@ describe("path-permission", () => {
 
   describe("matchesGlob", () => {
     it("should match exact path", () => {
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.txt"), true);
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.txt", testContext), true);
     });
 
     it("should match with * wildcard", () => {
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/*.txt"), true);
-      assert.strictEqual(matchesGlob("/home/user/file.log", "/home/user/*.txt"), false);
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/*.txt", testContext), true);
+      assert.strictEqual(matchesGlob("/home/user/file.log", "/home/user/*.txt", testContext), false);
     });
 
     it("should match with ** wildcard", () => {
-      assert.strictEqual(matchesGlob("/home/user/a/b/c/file.txt", "/home/user/**/*.txt"), true);
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/**/*.txt"), true);
+      assert.strictEqual(matchesGlob("/home/user/a/b/c/file.txt", "/home/user/**/*.txt", testContext), true);
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/**/*.txt", testContext), true);
     });
 
     it("should match with ? wildcard", () => {
-      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.t?t"), true);
-      assert.strictEqual(matchesGlob("/home/user/file.txxt", "/home/user/file.t?t"), false);
+      assert.strictEqual(matchesGlob("/home/user/file.txt", "/home/user/file.t?t", testContext), true);
+      assert.strictEqual(matchesGlob("/home/user/file.txxt", "/home/user/file.t?t", testContext), false);
     });
 
     it("should match hidden files with .*", () => {
-      assert.strictEqual(matchesGlob("/home/user/.bashrc", "/home/user/.*"), true);
-      assert.strictEqual(matchesGlob("/home/user/documents", "/home/user/.*"), false);
+      assert.strictEqual(matchesGlob("/home/user/.bashrc", "/home/user/.*", testContext), true);
+      assert.strictEqual(matchesGlob("/home/user/documents", "/home/user/.*", testContext), false);
     });
 
     it("should handle Windows-style paths", () => {
-      assert.strictEqual(matchesGlob("C:\\Users\\file.txt", "C:/Users/*.txt"), true);
+      assert.strictEqual(matchesGlob("C:\\Users\\file.txt", "C:/Users/*.txt", testContext), true);
     });
   });
 
@@ -94,11 +94,12 @@ describe("path-permission", () => {
       assert.strictEqual(result.reason, "Public area");
     });
 
-    it("should expand variables in patterns", () => {
+    it("should match preprocessed patterns", () => {
+      // Patterns are preprocessed at load time, so we use expanded patterns here
       const permission: PermissionSection = {
         default: "ask",
         overrides: [
-          { path: ["{{HOME}}/.ssh/**"], action: "deny", reason: "SSH keys" },
+          { path: ["/home/user/.ssh/**"], action: "deny", reason: "SSH keys" },
         ],
       };
 
@@ -154,7 +155,7 @@ describe("path-permission", () => {
       const config = createEmptyConfig();
       config.permissions.write.default = "ask";
       config.permissions.write.overrides.push({
-        path: ["{{CWD}}/**"],
+        path: ["/project/**"],
         action: "allow",
       });
 

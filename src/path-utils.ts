@@ -49,13 +49,25 @@ export function expandEnvVars(pattern: string): string {
 }
 
 /**
- * Full path preprocessing pipeline:
- * 1. Expand tildes (~)
- * 2. Expand {{VARS}}
- * 3. Expand $ENV_VARS
- * 4. Normalize path (using Node.js normalize for . and .. handling)
+ * Normalize a file path for checking against patterns.
+ * Resolves relative paths to absolute and normalizes using Node.js normalize().
+ */
+export function normalizeFilePath(filePath: string, context: PathContext): string {
+  // Resolve relative paths to absolute
+  const resolved = isAbsolute(filePath)
+    ? filePath
+    : resolve(context.cwd, filePath);
+
+  // Normalize (handles . and .., converts to platform-native separators)
+  return normalize(resolved);
+}
+
+/**
+ * Preprocess a pattern from config for glob matching.
+ * Expands variables (tilde, braces, env vars) and normalizes the path.
  * 
- * Note: Does NOT convert separators. matchesGlob handles both / and \.
+ * This is for config patterns, not runtime file paths.
+ * Uses normalizeFilePath for consistent normalization.
  */
 export function preprocessPath(
   pattern: string,
@@ -72,25 +84,11 @@ export function preprocessPath(
   // Step 3: $ENV_VAR expansion
   result = expandEnvVars(result);
 
-  // Step 4: Normalize (handles . and .. but preserves platform separators)
-  result = normalize(result);
+  // Step 4: Normalize (handles . and .., converts to platform-native separators)
+  // Use normalizeFilePath logic: resolve if needed, then normalize
+  result = normalizeFilePath(result, context);
 
   return result;
-}
-
-/**
- * Normalize a file path for checking against patterns.
- * Resolves relative paths to absolute and normalizes using Node.js normalize().
- * Preserves platform-native separators - matchesGlob handles both / and \.
- */
-export function normalizeFilePath(filePath: string, context: PathContext): string {
-  // Resolve relative paths to absolute
-  const resolved = isAbsolute(filePath)
-    ? filePath
-    : resolve(context.cwd, filePath);
-
-  // Normalize (handles . and .. but preserves platform separators)
-  return normalize(resolved);
 }
 
 /**

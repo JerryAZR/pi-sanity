@@ -6,7 +6,7 @@
 import * as path from "node:path";
 import * as os from "node:os";
 import { execSync } from "node:child_process";
-import { preprocessPath, normalizeFilePath, type PathContext } from "./path-utils.js";
+import { normalizeFilePath, type PathContext } from "./path-utils.js";
 import type { Action, PermissionSection, SanityConfig } from "./config-types.js";
 
 export type { PathContext };
@@ -52,22 +52,26 @@ export function getDefaultContext(): PathContext {
 }
 
 /**
- * Normalize a file path for glob matching.
- * Resolves relative paths to absolute and normalizes.
- * Re-exported from path-utils.
- */
-export { normalizeFilePath } from "./path-utils.js";
-
-/**
- * Check if a path matches a glob pattern
+ * Check if a path matches a glob pattern.
  * Requires Node.js 22+ for path.matchesGlob
  * 
- * Note: matchesGlob handles both / and \ interchangeably, so no
- * manual normalization is needed before calling it.
+ * This function:
+ * - Normalizes the file path (resolves to absolute, handles . and ..)
+ * - Uses the preprocessed pattern (already expanded and normalized by config loader)
+ * 
+ * @param filePath - The file path to check (will be normalized)
+ * @param pattern - The preprocessed glob pattern from config
+ * @param context - Path context for normalization
  */
-export function matchesGlob(filePath: string, pattern: string): boolean {
+export function matchesGlob(
+  filePath: string,
+  pattern: string,
+  context: PathContext
+): boolean {
+  const normalizedPath = normalizeFilePath(filePath, context);
+  
   // @ts-ignore - matchesGlob is available in Node 22+
-  return path.matchesGlob(filePath, pattern);
+  return path.matchesGlob(normalizedPath, pattern);
 }
 
 /**
@@ -85,15 +89,10 @@ export function checkPathPermission(
     reason: permission.reason,
   };
 
-  // Normalize the file path (resolve relative to absolute)
-  const normalizedFilePath = normalizeFilePath(filePath, context);
-
   // Check each override in order (last match wins)
   for (const override of permission.overrides) {
     for (const pattern of override.path) {
-      const expandedPattern = preprocessPath(pattern, context);
-
-      if (matchesGlob(normalizedFilePath, expandedPattern)) {
+      if (matchesGlob(filePath, pattern, context)) {
         result = {
           action: override.action,
           reason: override.reason,

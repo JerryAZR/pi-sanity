@@ -2,6 +2,7 @@
  * Config loader for pi-sanity
  * Loads and merges TOML config files from multiple sources
  * Aliases are expanded into separate CommandConfig entries for O(1) lookup
+ * Patterns are preprocessed at load time for efficient matching
  */
 
 import * as fs from "fs";
@@ -18,14 +19,55 @@ import type {
 } from "./config-types.js";
 import { createEmptyConfig } from "./config-types.js";
 import { DEFAULT_CONFIG_CONTENT } from "./generated/default-config.js";
+import { preprocessPath, type PathContext } from "./path-utils.js";
+
+/**
+ * Create a PathContext for config preprocessing
+ */
+function createConfigContext(): PathContext {
+  return {
+    cwd: process.cwd(),
+    home: os.homedir(),
+    tmpdir: os.tmpdir(),
+    repo: undefined, // Will be set per-project if needed
+  };
+}
+
+/**
+ * Preprocess all path patterns in a config.
+ * Expands variables ({{HOME}}, {{CWD}}, etc.) and normalizes paths.
+ * Called after config loading/merging so patterns are ready to use.
+ */
+function preprocessConfigPatterns(config: SanityConfig): void {
+  const ctx = createConfigContext();
+
+  // Preprocess read permission patterns
+  for (const override of config.permissions.read.overrides) {
+    override.path = override.path.map(p => preprocessPath(p, ctx));
+  }
+
+  // Preprocess write permission patterns
+  for (const override of config.permissions.write.overrides) {
+    override.path = override.path.map(p => preprocessPath(p, ctx));
+  }
+
+  // Preprocess delete permission patterns
+  for (const override of config.permissions.delete.overrides) {
+    override.path = override.path.map(p => preprocessPath(p, ctx));
+  }
+}
 
 /**
  * Load a TOML config from a string.
  * Use this for inline config in tests or programmatic config.
+ * Patterns are NOT preprocessed - caller must preprocess if needed,
+ * or use preprocessConfigPatterns() directly.
  */
 export function loadConfigFromString(tomlContent: string): SanityConfig {
   const parsed = parse(tomlContent) as Partial<SanityConfig>;
-  return mergeConfigs([expandAliases(parsed)]);
+  const config = mergeConfigs([expandAliases(parsed)]);
+  preprocessConfigPatterns(config);
+  return config;
 }
 
 /**
@@ -42,7 +84,9 @@ function loadEmbeddedDefaultConfig(): Partial<SanityConfig> {
  * Useful for testing or when you want guaranteed defaults.
  */
 export function loadDefaultConfig(): SanityConfig {
-  return mergeConfigs([expandAliases(loadEmbeddedDefaultConfig())]);
+  const config = mergeConfigs([expandAliases(loadEmbeddedDefaultConfig())]);
+  preprocessConfigPatterns(config);
+  return config;
 }
 
 /**
@@ -52,7 +96,7 @@ export function loadDefaultConfig(): SanityConfig {
  * 3. Project config (.pi/sanity.toml)
  *
  * @param projectDir - Path to project root (for project config)
- * @returns Merged SanityConfig
+ * @returns Merged SanityConfig with preprocessed patterns
  */
 export function loadConfig(projectDir?: string): SanityConfig {
   const configs: Partial<SanityConfig>[] = [];
@@ -80,7 +124,12 @@ export function loadConfig(projectDir?: string): SanityConfig {
   }
 
   // Merge all configs
-  return mergeConfigs(configs);
+  const config = mergeConfigs(configs);
+  
+  // Preprocess all patterns after merging
+  preprocessConfigPatterns(config);
+  
+  return config;
 }
 
 /**
