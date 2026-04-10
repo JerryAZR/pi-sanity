@@ -316,5 +316,28 @@ default = "ask"
       const result = checkBash("cat a.txt | grep x | wc -l", config);
       assert.strictEqual(result.action, "allow");
     });
+
+    it("should ask when reading hidden files in home via pipeline", () => {
+      const config = loadDefaultConfig();
+      // {{HOME}}/.* has read override "ask"
+      const home = os.homedir().replace(/\\/g, "/");
+      const result = checkBash(`cat ${home}/.bashrc | grep alias`, config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should ask when reading hidden files in home via pipeline", () => {
+      const config = loadDefaultConfig();
+      const home = os.homedir().replace(/\\/g, "/");
+      // Hidden file in home: {{HOME}}/.* has "ask" action
+      const result = checkBash(`cat ${home}/.bashrc | grep alias`, config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should deny pipeline containing dd command", () => {
+      const config = loadDefaultConfig();
+      // dd has default_action = "deny" in default config
+      const result = checkBash("cat file.txt | dd of=/dev/null", config);
+      assert.strictEqual(result.action, "deny");
+    });
   });
 });
