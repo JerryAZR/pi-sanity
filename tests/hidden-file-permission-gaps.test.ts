@@ -46,6 +46,8 @@ describe("Hidden file permission coverage", () => {
   });
 
   describe("WRITE permissions", () => {
+    const tmpdir = os.tmpdir();
+    
     it("regular file in HOME should ASK", () => {
       const result = checkWrite(`${home}/documents/file.txt`, config);
       assert.strictEqual(result.action, "ask",
@@ -77,19 +79,21 @@ describe("Hidden file permission coverage", () => {
     });
 
     it("regular file in TMPDIR should ALLOW", () => {
-      const result = checkWrite("/tmp/file.txt", config);
+      const result = checkWrite(`${tmpdir}/file.txt`, config);
       assert.strictEqual(result.action, "allow",
         "Regular file write in TMPDIR should allow");
     });
 
     it("hidden file in TMPDIR should ALLOW", () => {
-      const result = checkWrite("/tmp/.hidden", config);
+      const result = checkWrite(`${tmpdir}/.hidden`, config);
       assert.strictEqual(result.action, "allow",
         "Hidden file in TMPDIR should be allowed ({{TMPDIR}}/.* pattern)");
     });
   });
 
   describe("DELETE permissions", () => {
+    const tmpdir = os.tmpdir();
+    
     it("regular file in HOME should ASK", () => {
       const result = checkDelete(`${home}/documents/file.txt`, config);
       assert.strictEqual(result.action, "ask",
@@ -121,13 +125,13 @@ describe("Hidden file permission coverage", () => {
     });
 
     it("regular file in TMPDIR should ALLOW", () => {
-      const result = checkDelete("/tmp/file.txt", config);
+      const result = checkDelete(`${tmpdir}/file.txt`, config);
       assert.strictEqual(result.action, "allow",
         "Regular file delete in TMPDIR should allow");
     });
 
     it("hidden file in TMPDIR should ALLOW", () => {
-      const result = checkDelete("/tmp/.hidden", config);
+      const result = checkDelete(`${tmpdir}/.hidden`, config);
       assert.strictEqual(result.action, "allow",
         "Hidden file delete in TMPDIR should be allowed ({{TMPDIR}}/.* pattern)");
     });
