@@ -13,6 +13,7 @@
     "embed-config": "node scripts/embed-config.js",
     "build": "npm run embed-config && tsc",
     "test": "npm run build && node run-tests.js",
+    "test:ci": "npm run build && node --test --test-reporter=./tests/reporter.js dist/tests/*.test.js",
     "check": "tsc --noEmit"
   },
   "dependencies": {

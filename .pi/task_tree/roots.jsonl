@@ -9,7 +9,12 @@
       "id": "019d-7772-d8c5",
       "title": "Pi-Sanity Current Work",
       "createdAt": 1775825508549
+    },
+    {
+      "id": "019d-7d08-35e8",
+      "title": "Clean up debug logging and hardcoded paths",
+      "createdAt": 1775919183336
     }
   ],
-  "activeId": "019d-7772-d8c5"
+  "activeId": "019d-7d08-35e8"
 }
