@@ -19,3 +19,19 @@
 {"index":"18","parentIndex":"root","title":"Implement Select, Coproc, TestCommand, ArithmeticFor, ArithmeticCommand - PRIORITY 3","completed":true,"deleted":false}
 {"index":"19","parentIndex":"root","title":"Implement assignment prefix handling - PRIORITY 3","completed":true,"deleted":false}
 {"index":"20","parentIndex":"root","title":"Implement ParameterExpansion, ArithmeticExpansion, DoubleQuoted traversal - PRIORITY 3","completed":true,"deleted":false}
+{"index":"21","parentIndex":"root","title":"Run updated glob pattern tests and collect failures","completed":false,"deleted":false}
+{"index":"22","parentIndex":"root","title":"Run updated glob pattern tests and collect failures","completed":false,"deleted":false}
+{"index":"23","parentIndex":"root","title":"Run tests with deny-first config","completed":false,"deleted":false}
+{"index":"24","parentIndex":"root","title":"Verify full test suite passes with deny-first config","completed":false,"deleted":false}
+{"index":"25","parentIndex":"root","title":"Verify config fixes for git protection and TMPDIR deletion","completed":false,"deleted":false}
+{"index":"26","parentIndex":"root","title":"Verify config fixes for git protection and TMPDIR deletion","completed":false,"deleted":false}
+{"index":"27","parentIndex":"root","title":"Run full test suite to verify all changes","completed":false,"deleted":false}
+{"index":"28","parentIndex":"root","title":"Run full test suite to verify all changes","completed":false,"deleted":false}
+{"index":"29","parentIndex":"root","title":"Run full test suite to verify all changes","completed":false,"deleted":false}
+{"index":"30","parentIndex":"root","title":"Verify hidden file fix works","completed":false,"deleted":false}
+{"index":"31","parentIndex":"root","title":"Verify hidden file fix works","completed":false,"deleted":false}
+{"index":"32","parentIndex":"root","title":"Verify hidden file fix works","completed":false,"deleted":false}
+{"index":"33","parentIndex":"root","title":"Run full test suite to verify hidden file fix","completed":false,"deleted":false}
+{"index":"34","parentIndex":"root","title":"Run complete test suite","completed":false,"deleted":false}
+{"index":"35","parentIndex":"root","title":"Check and fix remaining test failures","completed":false,"deleted":true}
+{"index":"36","parentIndex":"root","title":"Verify HOME hidden file fix","completed":true,"deleted":false}

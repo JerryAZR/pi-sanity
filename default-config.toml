@@ -48,34 +48,49 @@ reason = "Hidden files in home directory may contain secrets"
 path = ["{{HOME}}/.ssh/*.pub"]
 action = "allow"
 
+# Write permissions: DENY-FIRST model
+# - Default: deny (catches all system directories automatically)
+# - Home: ask (bigger scope, listed first)
+# - CWD/TMPDIR: allow (smaller scope, wins over HOME for paths inside CWD)
+# - Git: ask (most specific, listed LAST, wins over CWD for .git directories)
 [permissions.write]
-default = "ask"
-reason = "Writing outside known-safe locations requires confirmation"
+default = "deny"
+reason = "Writing outside allowed locations requires explicit permission"
 
 [[permissions.write.overrides]]
-path = ["{{CWD}}/**", "{{TMPDIR}}/**"]
+path = ["{{HOME}}/**", "{{HOME}}/.*"]
+action = "ask"
+reason = "Writing to home directory requires confirmation"
+
+[[permissions.write.overrides]]
+path = ["{{CWD}}/**", "{{TMPDIR}}/**", "{{CWD}}/.*", "{{TMPDIR}}/.*"]
 action = "allow"
 
 [[permissions.write.overrides]]
-path = ["{{REPO}}/.git/**"]
+path = ["**/.git/**"]
 action = "ask"
 reason = "Modifying git internals can be dangerous"
 
+# Delete permissions: DENY-FIRST model
+# - Default: deny (catches all system directories automatically)
+# - Home: ask (bigger scope, listed first)
+# - CWD/TMPDIR: allow (smaller scope, wins over HOME for paths inside CWD)
+# - Git: ask (most specific, listed LAST, wins over CWD for .git directories)
 [permissions.delete]
-default = "ask"
-reason = "Deletion requires explicit confirmation"
+default = "deny"
+reason = "Deletion outside allowed locations is not permitted"
 
 [[permissions.delete.overrides]]
-path = ["{{HOME}}", "/", "/etc", "/usr", "/var"]
-action = "deny"
-reason = "Deleting system or home directory is dangerous"
+path = ["{{HOME}}/**", "{{HOME}}/.*"]
+action = "ask"
+reason = "Deleting from home directory requires confirmation"
 
 [[permissions.delete.overrides]]
-path = ["{{CWD}}/**"]
+path = ["{{CWD}}/**", "{{TMPDIR}}/**", "{{CWD}}/.*", "{{TMPDIR}}/.*"]
 action = "allow"
 
 [[permissions.delete.overrides]]
-path = ["{{REPO}}/.git/**"]
+path = ["**/.git/**"]
 action = "ask"
 reason = "Deleting git internals can be dangerous"
 
