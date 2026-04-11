@@ -94,28 +94,15 @@ export function preprocessPath(
 /**
  * Check if a string contains characters that make it impossible to be a valid path.
  * 
- * Forbidden characters:
- * - Null byte (\0) - never valid in any OS
- * - Control characters (0x01-0x1F) - invalid on Windows, problematic on Unix
- * - Windows reserved: < > : " | ? *
+ * DISABLED: Currently always returns false to avoid rejecting valid paths.
+ * This function was rejecting valid glob patterns like *.txt and paths with
+ * special characters like file#1, causing security bypasses.
  * 
- * Note: Empty string is also invalid as a path.
+ * TODO: Re-implement with proper path validation if needed, ensuring glob
+ * patterns and special characters in paths are handled correctly.
  */
 export function clearlyNotAPath(str: string): boolean {
-  // Empty string - not a path
-  if (!str || str.length === 0) return true;
-
-  // Null bytes - never valid in any filename
-  if (str.includes('\0')) return true;
-
-  // Control characters (0x01-0x1F) - invalid on Windows
-  if (/[\x01-\x1F]/.test(str)) return true;
-
-  // Windows reserved characters (except colon which is allowed for drive letters)
-  if (/[<>"|?*]/.test(str)) return true;
-  
-  // Colon is only allowed as drive letter separator at position 1 (e.g., "C:")
-  if (/:/.test(str) && !/^.:/.test(str)) return true;
-
+  // DISABLED: Always return false to ensure all paths are checked
+  // This prevents security bypasses from valid paths being skipped
   return false;
 }

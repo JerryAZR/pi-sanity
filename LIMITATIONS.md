@@ -12,8 +12,8 @@ These patterns can hide the actual command being executed from our parser:
 
 | Pattern | Example | Why Not Fixed |
 |---------|---------|---------------|
-| Command substitution | `$(echo rm) file` | Static analysis cannot predict command output without executing it |
-| Backticks | `` `which rm` file `` | Same as above |
+| Command substitution in name | `$(echo rm) file` | Static analysis cannot predict command output without executing it. **Note:** We CAN extract the inner `echo rm` command, but we cannot know the outer command name is "rm" without evaluation. |
+| Backticks in name | `` `which rm` file `` | Same as above |
 | `eval` | `eval 'rm file'` | Argument is a string evaluated at runtime; would need recursive bash parsing |
 | `bash -c` | `bash -c 'rm file'` | Same as eval |
 | String concatenation | `/bi'n'/rm file` | Would need to implement shell quote removal |
@@ -52,9 +52,23 @@ These involve runtime state that may differ from check time:
 |---------|---------|---------------|
 | Symlinks | `rm ~/link-to-secret` | Intentional: if user created link in allowed path, they likely want to treat it as part of that path |
 | Environment variables in paths | `rm $SECRET_DIR/file` | Variables can change between check time and execution time |
-| Process substitution | `cat <(cat /etc/passwd)` | Inner command runs in subprocess; would need recursive check |
+
+**Note on Process Substitution:** Commands inside `<(cmd)` and `>(cmd)` CAN and SHOULD be extracted and checked via AST traversal. This is different from path resolution - it's command extraction.
 
 **Why we allow these:** All paths are normalized and resolved to absolute before checking, so literal `..` segments are handled. Symlinks in allowed paths are usually intentional. Environment variables may change between check time and execution time.
+
+---
+
+## Arithmetic Commands
+
+Command substitutions inside arithmetic expressions are represented as plain strings by unbash, not as parsed AST nodes:
+
+| Pattern | Example | Why Not Fixed |
+|---------|---------|---------------|
+| Arithmetic command | `(( x = $(echo 5) ))` | `$(echo 5)` is a string, not a parsed node - would require string parsing |
+| Arithmetic expansion | `echo $(( 1 + $(echo 2) ))` | `$(echo 2)` is an ArithmeticWord value, not CommandExpansion - would require string parsing |
+
+**Why we allow these:** These are uncommon patterns. Extracting commands would require parsing string content, which adds complexity and potential edge cases. The inner commands would be checked if they appeared outside arithmetic contexts.
 
 ---
 
