@@ -54,6 +54,11 @@ path = ["**/.git/**"]
 action = "ask"
 reason = "Modifying git internals can be dangerous"
 
+[[permissions.write.overrides]]
+path = [".pi/sanity.toml", ".pi/config.toml"]
+action = "ask"
+reason = "Modifying safety configuration requires confirmation"
+
 # Delete permissions: DENY-FIRST model
 # - Default: deny (catches all system directories automatically)
 # - Home: ask (bigger scope, listed first)
@@ -76,6 +81,11 @@ action = "allow"
 path = ["**/.git/**"]
 action = "ask"
 reason = "Deleting git internals can be dangerous"
+
+[[permissions.delete.overrides]]
+path = [".pi/sanity.toml", ".pi/config.toml"]
+action = "ask"
+reason = "Deleting safety configuration requires confirmation"
 
 [commands.cp]
 default_action = "allow"
