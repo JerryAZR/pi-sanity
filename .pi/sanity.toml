@@ -1,7 +1,0 @@
-# Project-level Pi-Sanity configuration
-# Allows reading from the pi-coding-agent installation in ~/.nvm
-
-[[permissions.read.overrides]]
-path = ["{{HOME}}/.nvm/versions/node/v*/lib/node_modules/@mariozechner/pi-coding-agent/**"]
-action = "allow"
-reason = "Allow reading pi-coding-agent documentation and types"
