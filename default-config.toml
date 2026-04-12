@@ -27,7 +27,10 @@ path = ["{{HOME}}/.*{,/**}"]
 action = "ask"
 reason = "Hidden files in home directory may contain secrets"
 
-# Allow reading npm package installations for documentation/types
+[[permissions.read.overrides]]
+path = ["/dev/null", "/dev/zero", "/dev/random", "/dev/urandom", "/dev/stdin", "/dev/stdout", "/dev/stderr"]
+action = "allow"
+reason = "Special device files are safe to read from"
 [[permissions.read.overrides]]
 path = ["/**/node_modules/**"]
 action = "allow"
@@ -45,6 +48,11 @@ action = "allow"
 [permissions.write]
 default = "deny"
 reason = "Writing outside allowed locations requires explicit permission"
+
+[[permissions.write.overrides]]
+path = ["/dev/null", "/dev/zero", "/dev/random", "/dev/urandom", "/dev/stdin", "/dev/stdout", "/dev/stderr"]
+action = "allow"
+reason = "Special device files are safe to write to"
 
 [[permissions.write.overrides]]
 path = ["{{HOME}}/**"]
