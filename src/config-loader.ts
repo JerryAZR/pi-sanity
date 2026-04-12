@@ -227,6 +227,11 @@ function mergeInto(target: SanityConfig, source: Partial<SanityConfig>): void {
     }
   }
 
+  // Merge ask_timeout (later overrides earlier)
+  if (source.ask_timeout !== undefined) {
+    target.ask_timeout = source.ask_timeout;
+  }
+
   // Merge commands (deep merge per command)
   if (source.commands) {
     for (const [name, cmdConfig] of Object.entries(source.commands)) {

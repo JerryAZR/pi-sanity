@@ -44,7 +44,12 @@
       "id": "1775976198662",
       "title": "Git commit",
       "createdAt": 1775976198662
+    },
+    {
+      "id": "1775976790707",
+      "title": "Verify core readiness",
+      "createdAt": 1775976790707
     }
   ],
-  "activeId": "1775976198662"
+  "activeId": "1775976790707"
 }

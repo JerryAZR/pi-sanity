@@ -56,6 +56,7 @@ export interface PermissionsConfig {
 export interface SanityConfig {
   permissions: PermissionsConfig;
   commands: Record<string, CommandConfig>;
+  ask_timeout?: number; // Timeout in seconds for "ask" prompts (default: 30)
 }
 
 /**
