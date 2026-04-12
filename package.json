@@ -1,13 +1,36 @@
 {
-  "name": "pi-sanity",
+  "name": "@jerryan/pi-sanity",
   "version": "0.1.0",
   "description": "Pi extension for sanity checks on agent operations",
   "type": "module",
+  "license": "Apache-2.0",
+  "author": "Jerry An <jerryan@gmx.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JerryAZR/pi-sanity.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JerryAZR/pi-sanity/issues"
+  },
+  "homepage": "https://github.com/JerryAZR/pi-sanity#readme",
+  "keywords": [
+    "pi",
+    "pi-extension",
+    "agent",
+    "ai",
+    "safety",
+    "sanity-checks",
+    "bash",
+    "security"
+  ],
   "engines": {
     "node": ">=22.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md",
+    "CONFIG.md"
   ],
   "scripts": {
     "embed-config": "node scripts/embed-config.js",

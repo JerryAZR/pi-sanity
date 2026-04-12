@@ -24,14 +24,14 @@ Think of it as a "seatbelt" for your agent—not a guarantee against all acciden
 ## Installation
 
 ```bash
-pi install pi-sanity
+pi install @jerryan/pi-sanity
 ```
 
 Or add to your project's `.pi/config.toml`:
 
 ```toml
 [extensions]
-pi-sanity = "latest"
+"@jerryan/pi-sanity" = "latest"
 ```
 
 ## Default Protection
@@ -187,10 +187,10 @@ Pi-Sanity exists for users who find that approach too interruptive for daily dev
 
 ## License
 
-ISC
+Apache License 2.0
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
 
-By contributing, you agree that your contributions will be licensed under the ISC License.
+By contributing, you agree that your contributions will be licensed under the Apache License 2.0.

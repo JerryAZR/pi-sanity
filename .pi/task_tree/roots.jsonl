@@ -59,7 +59,12 @@
       "id": "1775993832416",
       "title": "Verify current project state",
       "createdAt": 1775993832416
+    },
+    {
+      "id": "1776005973239",
+      "title": "Pre-Publish Checklist",
+      "createdAt": 1776005973239
     }
   ],
-  "activeId": "1775993832416"
+  "activeId": "1776005973239"
 }

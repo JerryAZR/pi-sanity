@@ -187,4 +187,4 @@ test: add integration tests for write tool
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the ISC License.
+By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
