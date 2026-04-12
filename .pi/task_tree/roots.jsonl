@@ -14,7 +14,37 @@
       "id": "019d-7d08-35e8",
       "title": "Clean up debug logging and hardcoded paths",
       "createdAt": 1775919183336
+    },
+    {
+      "id": "1775968747529",
+      "title": "Current task",
+      "createdAt": 1775968747529
+    },
+    {
+      "id": "1775969152499",
+      "title": "Fix hidden dir glob matching",
+      "createdAt": 1775969152499
+    },
+    {
+      "id": "1775969781006",
+      "title": "Verify test failures",
+      "createdAt": 1775969781006
+    },
+    {
+      "id": "1775970318219",
+      "title": "Replace glob library",
+      "createdAt": 1775970318219
+    },
+    {
+      "id": "1775973540739",
+      "title": "Unify path preprocessing",
+      "createdAt": 1775973540739
+    },
+    {
+      "id": "1775976198662",
+      "title": "Git commit",
+      "createdAt": 1775976198662
     }
   ],
-  "activeId": "019d-7d08-35e8"
+  "activeId": "1775976198662"
 }

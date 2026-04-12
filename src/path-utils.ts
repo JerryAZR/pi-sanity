@@ -4,7 +4,7 @@
  * No checking logic - pure preprocessing only
  */
 
-import { normalize, resolve, isAbsolute } from "node:path";
+import { normalize, resolve, isAbsolute, posix } from "node:path";
 
 export interface PathContext {
   cwd: string;
@@ -12,6 +12,37 @@ export interface PathContext {
   repo?: string;
   tmpdir: string;
 }
+
+export interface PreprocessOptions {
+  /** Expand ~ to home directory (default: true) */
+  expandTilde?: boolean;
+  /** Expand {{VAR}} syntax (default: true for config, false for runtime) */
+  expandBraces?: boolean;
+  /** Expand $ENV_VAR syntax (default: true) */
+  expandEnvVars?: boolean;
+  /** Resolve relative paths to absolute (default: true) */
+  resolveRelative?: boolean;
+  /** Normalize path separators (default: "forward" for cross-platform) */
+  separator?: "native" | "forward";
+}
+
+/** Default options for config pattern preprocessing */
+const CONFIG_DEFAULTS: PreprocessOptions = {
+  expandTilde: true,
+  expandBraces: true,
+  expandEnvVars: true,
+  resolveRelative: true,
+  separator: "forward",
+};
+
+/** Default options for runtime path preprocessing */
+const RUNTIME_DEFAULTS: PreprocessOptions = {
+  expandTilde: true,
+  expandBraces: false,
+  expandEnvVars: true,
+  resolveRelative: true,
+  separator: "forward",
+};
 
 /**
  * Regex to match ~ at end-of-string OR followed by path separator
@@ -24,15 +55,15 @@ const TILDE_REGEX = /^~(?=$|[/\\])/;
  * Expand ~ to home directory
  * Handles: "~", "~/file", "~\file"
  */
-export function expandTilde(path: string, homeDir: string): string {
-  return path.replace(TILDE_REGEX, homeDir);
+export function expandTilde(input: string, homeDir: string): string {
+  return input.replace(TILDE_REGEX, homeDir);
 }
 
 /**
  * Expand {{VAR}} syntax: {{HOME}}, {{CWD}}, {{REPO}}, {{TMPDIR}}
  */
-export function expandBraces(pattern: string, context: PathContext): string {
-  return pattern
+export function expandBraces(input: string, context: PathContext): string {
+  return input
     .replace(/\{\{HOME\}\}/g, context.home)
     .replace(/\{\{CWD\}\}/g, context.cwd)
     .replace(/\{\{REPO\}\}/g, context.repo ?? context.cwd)
@@ -42,53 +73,109 @@ export function expandBraces(pattern: string, context: PathContext): string {
 /**
  * Expand $ENV_VAR syntax
  */
-export function expandEnvVars(pattern: string): string {
-  return pattern.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (_match, varName) => {
+export function expandEnvVars(input: string): string {
+  return input.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (_match, varName) => {
     return process.env[varName] ?? `$${varName}`;
   });
 }
 
 /**
- * Normalize a file path for checking against patterns.
- * Resolves relative paths to absolute and normalizes using Node.js normalize().
+ * Normalize path separators to forward slashes for cross-platform compatibility.
+ * picomatch treats backslashes as escape characters, so we need forward slashes.
  */
-export function normalizeFilePath(filePath: string, context: PathContext): string {
-  // Resolve relative paths to absolute
-  const resolved = isAbsolute(filePath)
-    ? filePath
-    : resolve(context.cwd, filePath);
-
-  // Normalize (handles . and .., converts to platform-native separators)
-  return normalize(resolved);
+export function normalizeSeparators(input: string): string {
+  // Replace all backslashes with forward slashes
+  return input.replace(/\\/g, "/");
 }
 
 /**
- * Preprocess a pattern from config for glob matching.
- * Expands variables (tilde, braces, env vars) and normalizes the path.
+ * Unified path preprocessing function.
  * 
- * This is for config patterns, not runtime file paths.
- * Uses normalizeFilePath for consistent normalization.
+ * Handles both config patterns and runtime paths with appropriate defaults.
+ * Use preprocessConfigPattern() or preprocessRuntimePath() for convenience.
  */
 export function preprocessPath(
+  input: string,
+  context: PathContext,
+  options: PreprocessOptions = {},
+): string {
+  const opts = { ...RUNTIME_DEFAULTS, ...options };
+  let result = input;
+
+  // Step 1: Expand tilde
+  if (opts.expandTilde) {
+    result = expandTilde(result, context.home);
+  }
+
+  // Step 2: Expand {{VAR}} syntax
+  if (opts.expandBraces) {
+    result = expandBraces(result, context);
+  }
+
+  // Step 3: Expand $ENV_VAR syntax
+  if (opts.expandEnvVars) {
+    result = expandEnvVars(result);
+  }
+
+  // Step 4: Resolve relative paths to absolute
+  if (opts.resolveRelative && !isAbsolute(result)) {
+    result = resolve(context.cwd, result);
+  }
+
+  // Step 5: Normalize path (handle . and ..)
+  result = normalize(result);
+
+  // Step 6: Normalize separators (forward slashes for cross-platform)
+  if (opts.separator === "forward") {
+    result = normalizeSeparators(result);
+  }
+
+  return result;
+}
+
+/**
+ * Preprocess a config pattern for glob matching.
+ * Expands all variables and normalizes to forward slashes.
+ * 
+ * Example: "{{HOME}}/**" → "/home/user/**"
+ */
+export function preprocessConfigPattern(
   pattern: string,
   context: PathContext,
 ): string {
-  let result = pattern;
+  return preprocessPath(pattern, context, CONFIG_DEFAULTS);
+}
 
-  // Step 1: Tilde expansion
-  result = expandTilde(result, context.home);
+/**
+ * Preprocess a runtime file path for checking.
+ * Expands tilde and env vars, resolves to absolute, normalizes to forward slashes.
+ * 
+ * Example: "~/.bashrc" → "/home/user/.bashrc"
+ * Example: "$HOME/.bashrc" → "/home/user/.bashrc"
+ * Example: "file.txt" → "/project/file.txt"
+ */
+export function preprocessRuntimePath(
+  filePath: string,
+  context: PathContext,
+): string {
+  return preprocessPath(filePath, context, RUNTIME_DEFAULTS);
+}
 
-  // Step 2: {{VAR}} expansion
-  result = expandBraces(result, context);
+/**
+ * @deprecated Use preprocessRuntimePath() instead
+ */
+export function normalizeFilePath(filePath: string, context: PathContext): string {
+  return preprocessRuntimePath(filePath, context);
+}
 
-  // Step 3: $ENV_VAR expansion
-  result = expandEnvVars(result);
-
-  // Step 4: Normalize (handles . and .., converts to platform-native separators)
-  // Use normalizeFilePath logic: resolve if needed, then normalize
-  result = normalizeFilePath(result, context);
-
-  return result;
+/**
+ * @deprecated Use preprocessConfigPattern() instead
+ */
+export function preprocessPath_legacy(
+  pattern: string,
+  context: PathContext,
+): string {
+  return preprocessConfigPattern(pattern, context);
 }
 
 /**

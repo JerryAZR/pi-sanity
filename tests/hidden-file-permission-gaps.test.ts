@@ -163,4 +163,52 @@ describe("Hidden file permission coverage", () => {
     });
   });
 
+  describe("deeply nested hidden directory coverage", () => {
+    // These tests document the glob matching behavior with hidden directories
+    // Node.js path.matchesGlob() ** does NOT traverse into hidden directories
+    // even with { dot: true } option
+
+    it("level 1: file in hidden dir ~/.local/share/file.txt", () => {
+      const result = checkDelete(`${home}/.local/share/file.txt`, config);
+      // This currently fails - ** doesn't traverse into .local
+      assert.strictEqual(result.action, "ask",
+        "Files inside hidden directories should be covered by home rules");
+    });
+
+    it("level 2: file in nested hidden dir ~/.config/app/settings.json", () => {
+      const result = checkDelete(`${home}/.config/app/settings.json`, config);
+      assert.strictEqual(result.action, "ask",
+        "Files in nested paths under hidden dirs should be covered");
+    });
+
+    it("level 3: deeply nested ~/.local/share/applications/app.desktop", () => {
+      const result = checkDelete(`${home}/.local/share/applications/app.desktop`, config);
+      assert.strictEqual(result.action, "ask",
+        "Deeply nested files in hidden dirs should be covered");
+    });
+
+    it("level 4+: very deep nesting ~/.cache/npm/_cacache/content-v2/...", () => {
+      const result = checkDelete(`${home}/.cache/npm/_cacache/content-v2/sha512/aa/bb/cc/file`, config);
+      assert.strictEqual(result.action, "ask",
+        "Very deeply nested files should still be covered by home rules");
+    });
+
+    it("hidden file inside hidden dir ~/.ssh/.config (rare but possible)", () => {
+      const result = checkDelete(`${home}/.ssh/.config`, config);
+      assert.strictEqual(result.action, "ask",
+        "Hidden files inside hidden directories should be covered");
+    });
+
+    it("mixed: non-hidden file in non-hidden subdir of hidden dir ~/.local/bin/myapp", () => {
+      const result = checkDelete(`${home}/.local/bin/myapp`, config);
+      assert.strictEqual(result.action, "ask",
+        "Non-hidden files in non-hidden subdirs of hidden dirs should be covered");
+    });
+
+    it("arbitrarily deep nesting ~/.a/.b/.c/.d/.e/.f/file.txt", () => {
+      const result = checkDelete(`${home}/.a/.b/.c/.d/.e/.f/file.txt`, config);
+      assert.strictEqual(result.action, "ask",
+        "Arbitrarily deep nested hidden directories should be covered by home rules");
+    });
+  });
 });

@@ -26,10 +26,12 @@ import type {
   ArithmeticExpression,
   CommandExpansionPart,
   ProcessSubstitutionPart,
+  ParseError,
 } from "../node_modules/unbash/dist/types.d.ts";
 
 export interface WalkResult {
   commands: FoundCommand[];
+  errors?: ParseError[];
 }
 
 export interface FoundCommand {
@@ -490,7 +492,7 @@ export function walkBash(command: string): WalkResult {
   }
 
   walk(ast);
-  return { commands };
+  return { commands, errors: ast.errors };
 }
 
 function extractRedirects(redirects: Redirect[] | undefined): FoundRedirect[] {

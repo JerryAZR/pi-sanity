@@ -19,7 +19,10 @@ import type {
 } from "./config-types.js";
 import { createEmptyConfig } from "./config-types.js";
 import { DEFAULT_CONFIG_CONTENT } from "./generated/default-config.js";
-import { preprocessPath, type PathContext } from "./path-utils.js";
+import {
+  preprocessConfigPattern,
+  type PathContext,
+} from "./path-utils.js";
 
 /**
  * Create a PathContext for config preprocessing
@@ -43,17 +46,17 @@ function preprocessConfigPatterns(config: SanityConfig): void {
 
   // Preprocess read permission patterns
   for (const override of config.permissions.read.overrides) {
-    override.path = override.path.map(p => preprocessPath(p, ctx));
+    override.path = override.path.map(p => preprocessConfigPattern(p, ctx));
   }
 
   // Preprocess write permission patterns
   for (const override of config.permissions.write.overrides) {
-    override.path = override.path.map(p => preprocessPath(p, ctx));
+    override.path = override.path.map(p => preprocessConfigPattern(p, ctx));
   }
 
   // Preprocess delete permission patterns
   for (const override of config.permissions.delete.overrides) {
-    override.path = override.path.map(p => preprocessPath(p, ctx));
+    override.path = override.path.map(p => preprocessConfigPattern(p, ctx));
   }
 }
 

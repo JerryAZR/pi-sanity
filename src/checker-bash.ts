@@ -55,6 +55,15 @@ export function checkBash(command: string, config: SanityConfig): CheckResult {
   // Parse command
   const walkResult = walkBash(command);
 
+  // Deny if there were parse errors - invalid bash syntax
+  if (walkResult.errors && walkResult.errors.length > 0) {
+    const errorMessages = walkResult.errors.map(e => e.message).join("; ");
+    return {
+      action: "deny",
+      reason: `Invalid bash syntax: ${errorMessages}`
+    };
+  }
+
   // Check each command found (handles pipelines, subshells)
   const results: CheckResult[] = [];
   for (const cmd of walkResult.commands) {

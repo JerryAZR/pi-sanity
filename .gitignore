@@ -29,6 +29,7 @@ coverage/
 .env
 .env.local
 src/generated/
+.pi/task_tree/
 
 # Scripts (keep embed-config.js)
 !scripts/embed-config.js

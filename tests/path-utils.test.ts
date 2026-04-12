@@ -7,6 +7,8 @@ import {
   expandBraces,
   expandEnvVars,
   preprocessPath,
+  preprocessConfigPattern,
+  preprocessRuntimePath,
   type PathContext,
 } from "../src/path-utils.js";
 
@@ -135,32 +137,32 @@ describe("path-utils (preprocessor)", () => {
     });
   });
 
-  describe("preprocessPath (full pipeline)", () => {
+  describe("preprocessConfigPattern (config pipeline)", () => {
     it("should apply all expansions in order", () => {
       process.env.TEST_PIPELINE = "data";
-      const result = preprocessPath("~/$TEST_PIPELINE/{{CWD}}", testContext);
-      // Result should have all expansions applied (platform separators OK)
+      const result = preprocessConfigPattern("~/$TEST_PIPELINE/{{CWD}}", testContext);
+      // Result should have all expansions applied (forward slashes)
       assert.ok(result.includes("home") && result.includes("user"));
       assert.ok(result.includes("data"));
       assert.ok(result.includes("project"));
       delete process.env.TEST_PIPELINE;
     });
 
-    it("should normalize slashes", () => {
-      const result = preprocessPath("~/folder\\file.txt", testContext);
-      // Should normalize to platform-appropriate separators
-      assert.ok(!result.includes("\\/") && !result.includes("/\\"));
+    it("should normalize to forward slashes", () => {
+      const result = preprocessConfigPattern("~/folder\\file.txt", testContext);
+      // Should normalize to forward slashes for cross-platform matching
+      assert.ok(!result.includes("\\"));
     });
 
     it("should remove duplicate slashes", () => {
-      const result = preprocessPath("{{HOME}}//file", testContext);
+      const result = preprocessConfigPattern("{{HOME}}//file", testContext);
       assert.ok(!result.includes("//"));
     });
 
-    it("should handle complex real-world paths", () => {
+    it("should handle complex real-world config patterns", () => {
       process.env.PROJECT = "myapp";
       const pattern = "~/$PROJECT/{{CWD}}/config.toml";
-      const result = preprocessPath(pattern, testContext);
+      const result = preprocessConfigPattern(pattern, testContext);
       // Should have expanded all variables
       assert.ok(!result.includes("~"));
       assert.ok(!result.includes("$PROJECT"));
@@ -168,10 +170,32 @@ describe("path-utils (preprocessor)", () => {
       delete process.env.PROJECT;
     });
 
-    it("should handle path without any variables", () => {
-      const result = preprocessPath("/etc/passwd", testContext);
-      // On Windows, normalize converts to backslashes; just verify no errors
+    it("should handle pattern without any variables", () => {
+      const result = preprocessConfigPattern("/etc/passwd", testContext);
       assert.ok(result.includes("etc") && result.includes("passwd"));
+    });
+  });
+
+  describe("preprocessRuntimePath (runtime pipeline)", () => {
+    it("should expand tilde and env vars but not braces", () => {
+      process.env.TEST_RUNTIME = "data";
+      const result = preprocessRuntimePath("~/$TEST_RUNTIME/{{CWD}}", testContext);
+      // Tilde and env var expanded, braces NOT expanded (user input shouldn't have them)
+      assert.ok(result.includes("home") && result.includes("user"));
+      assert.ok(result.includes("data"));
+      assert.ok(result.includes("{{CWD}}")); // Braces preserved
+      delete process.env.TEST_RUNTIME;
+    });
+
+    it("should resolve relative paths", () => {
+      const result = preprocessRuntimePath("file.txt", testContext);
+      assert.ok(result.includes("/project/"));
+      assert.ok(result.includes("file.txt"));
+    });
+
+    it("should normalize to forward slashes", () => {
+      const result = preprocessRuntimePath("~/folder\\file.txt", testContext);
+      assert.ok(!result.includes("\\"));
     });
   });
 });

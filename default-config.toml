@@ -58,12 +58,12 @@ default = "deny"
 reason = "Writing outside allowed locations requires explicit permission"
 
 [[permissions.write.overrides]]
-path = ["{{HOME}}/**", "{{HOME}}/.*"]
+path = ["{{HOME}}/**"]
 action = "ask"
 reason = "Writing to home directory requires confirmation"
 
 [[permissions.write.overrides]]
-path = ["{{CWD}}/**", "{{TMPDIR}}/**", "{{CWD}}/.*", "{{TMPDIR}}/.*"]
+path = ["{{CWD}}/**", "{{TMPDIR}}/**"]
 action = "allow"
 
 [[permissions.write.overrides]]
@@ -81,12 +81,12 @@ default = "deny"
 reason = "Deletion outside allowed locations is not permitted"
 
 [[permissions.delete.overrides]]
-path = ["{{HOME}}/**", "{{HOME}}/.*"]
+path = ["{{HOME}}/**"]
 action = "ask"
 reason = "Deleting from home directory requires confirmation"
 
 [[permissions.delete.overrides]]
-path = ["{{CWD}}/**", "{{TMPDIR}}/**", "{{CWD}}/.*", "{{TMPDIR}}/.*"]
+path = ["{{CWD}}/**", "{{TMPDIR}}/**"]
 action = "allow"
 
 [[permissions.delete.overrides]]

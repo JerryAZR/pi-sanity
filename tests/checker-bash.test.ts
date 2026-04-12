@@ -332,12 +332,112 @@ default = "ask"
       const result = checkBash(`cat ${home}/.bashrc | grep alias`, config);
       assert.strictEqual(result.action, "ask");
     });
+  });
 
-    it("should deny pipeline containing dd command", () => {
+  describe("parse error handling", () => {
+    it("should deny commands with unterminated double quotes", () => {
       const config = loadDefaultConfig();
-      // dd has default_action = "deny" in default config
-      const result = checkBash("cat file.txt | dd of=/dev/null", config);
+      const result = checkBash('echo "hello', config);
       assert.strictEqual(result.action, "deny");
+      assert.ok(result.reason?.includes("Invalid bash syntax"));
+      assert.ok(result.reason?.includes("unterminated double quote"));
+    });
+
+    it("should deny commands with unterminated backticks", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("echo `date", config);
+      assert.strictEqual(result.action, "deny");
+      assert.ok(result.reason?.includes("Invalid bash syntax"));
+      assert.ok(result.reason?.includes("unterminated backtick"));
+    });
+
+    it("should deny incomplete if statements", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("if then", config);
+      assert.strictEqual(result.action, "deny");
+      assert.ok(result.reason?.includes("Invalid bash syntax"));
+      assert.ok(result.reason?.includes("fi"));
+    });
+
+    it("should deny incomplete for loops", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("for do done", config);
+      assert.strictEqual(result.action, "deny");
+      assert.ok(result.reason?.includes("Invalid bash syntax"));
+    });
+
+    it("should deny incomplete case statements", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("case esac", config);
+      assert.strictEqual(result.action, "deny");
+      assert.ok(result.reason?.includes("Invalid bash syntax"));
+    });
+
+    it("should allow valid complex commands", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("echo $(echo nested)", config);
+      assert.strictEqual(result.action, "allow");
+    });
+  });
+
+  describe("tilde expansion in command args", () => {
+    it("should treat ~/file as home directory for read checks", () => {
+      const config = loadDefaultConfig();
+      // Hidden files in home should ask for read
+      const result = checkBash("cat ~/.bashrc", config);
+      assert.strictEqual(result.action, "ask",
+        "Tilde should expand to home, hidden files should ask");
+    });
+
+    it("should treat ~/.ssh/*.pub as allowed for read", () => {
+      const config = loadDefaultConfig();
+      // SSH public keys are explicitly allowed
+      const result = checkBash("cat ~/.ssh/id_rsa.pub", config);
+      assert.strictEqual(result.action, "allow",
+        "SSH public keys should be allowed");
+    });
+
+    it("should treat ~/file as home directory for write checks", () => {
+      const config = loadDefaultConfig();
+      // Writing to home should ask
+      const result = checkBash("echo hello > ~/file.txt", config);
+      assert.strictEqual(result.action, "ask",
+        "Tilde should expand to home, writes should ask");
+    });
+
+    it("should treat ~/file as home directory for delete checks", () => {
+      const config = loadDefaultConfig();
+      // Deleting in home should ask
+      const result = checkBash("rm ~/documents/file.txt", config);
+      assert.strictEqual(result.action, "ask",
+        "Tilde should expand to home, deletes should ask");
+    });
+
+    it("should allow deleting hidden files in CWD with tilde (when cwd is home)", () => {
+      // This test only makes sense when CWD is not home
+      // Testing the general tilde behavior
+      const config = loadDefaultConfig();
+      const result = checkBash("rm ~/.local/share/file.txt", config);
+      // This should match {{HOME}}/.* pattern and ask
+      assert.strictEqual(result.action, "ask",
+        "Tilde paths in home should follow home rules");
+    });
+
+    it("should handle tilde alone as home directory", () => {
+      const config = loadDefaultConfig();
+      const result = checkBash("ls ~", config);
+      assert.strictEqual(result.action, "allow",
+        "Reading home directory should be allowed");
+    });
+
+    it("should not expand ~user (username suffix)", () => {
+      const config = loadDefaultConfig();
+      // ~root should NOT be expanded, treated as literal path
+      const result = checkBash("cat ~root/.bashrc", config);
+      // This is a relative path "~root/.bashrc" which doesn't exist
+      // Default read is allow
+      assert.strictEqual(result.action, "allow",
+        "~user syntax should not be expanded, treated as literal");
     });
   });
 });

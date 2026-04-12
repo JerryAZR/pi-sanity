@@ -18,12 +18,16 @@
   },
   "dependencies": {
     "commander": "^14.0.3",
+    "micromatch": "^4.0.8",
+    "minimatch": "^10.2.5",
+    "picomatch": "^4.0.4",
     "smol-toml": "^1.6.1",
     "unbash": "^2.2.0",
     "yargs": "^18.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/picomatch": "^4.0.3",
     "typescript": "^5.0.0"
   },
   "pi": {

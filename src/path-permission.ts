@@ -6,7 +6,12 @@
 import * as path from "node:path";
 import * as os from "node:os";
 import { execSync } from "node:child_process";
-import { normalizeFilePath, type PathContext } from "./path-utils.js";
+import picomatch from "picomatch";
+import {
+  preprocessConfigPattern,
+  preprocessRuntimePath,
+  type PathContext,
+} from "./path-utils.js";
 import type { Action, PermissionSection, SanityConfig } from "./config-types.js";
 
 export type { PathContext };
@@ -53,7 +58,7 @@ export function getDefaultContext(): PathContext {
 
 /**
  * Check if a normalized path matches a preprocessed glob pattern.
- * Requires Node.js 22+ for path.matchesGlob
+ * Uses picomatch for proper dot-glob support (hidden directory traversal).
  * 
  * Both path and pattern should already be normalized. Patterns are
  * preprocessed at config load time by config-loader.ts.
@@ -62,8 +67,8 @@ export function getDefaultContext(): PathContext {
  * @param pattern - The preprocessed glob pattern from config
  */
 export function matchesGlob(normalizedPath: string, pattern: string): boolean {
-  // @ts-ignore - matchesGlob is available in Node 22+
-  return path.matchesGlob(normalizedPath, pattern);
+  // picomatch with dot:true properly handles hidden directories
+  return picomatch.isMatch(normalizedPath, pattern, { dot: true });
 }
 
 /**
@@ -82,7 +87,7 @@ export function checkPathPermission(
   };
 
   // Normalize the file path once before checking
-  const normalizedFilePath = normalizeFilePath(filePath, context);
+  const normalizedFilePath = preprocessRuntimePath(filePath, context);
 
   // Check each override in order (last match wins)
   for (const override of permission.overrides) {
