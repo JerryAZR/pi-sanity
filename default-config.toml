@@ -50,7 +50,7 @@ default = "deny"
 reason = "Writing outside allowed locations requires explicit permission"
 
 [[permissions.write.overrides]]
-path = ["/dev/null", "/dev/zero", "/dev/random", "/dev/urandom", "/dev/stdin", "/dev/stdout", "/dev/stderr"]
+path = ["/dev/null", "/dev/stdout", "/dev/stderr"]
 action = "allow"
 reason = "Special device files are safe to write to"
 
