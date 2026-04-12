@@ -52,9 +52,42 @@ action = "allow"
 ```
 
 With this config:
-- `~/.bashrc` → **ask** (matches first override)
+- `~/.bashrc` → **ask** (matches first override, shows confirmation dialog)
 - `~/.ssh/id_rsa.pub` → **allow** (second override wins)
 - `/etc/passwd` → **allow** (default, no match)
+
+### Action Behaviors
+
+Three actions are available: `allow`, `ask`, and `deny`.
+
+| Action | Behavior |
+|--------|----------|
+| `allow` | Operation proceeds normally |
+| `ask` | Shows confirmation dialog with reason; user can approve or deny |
+| `deny` | Immediately blocks the operation |
+
+**Ask Action Details:**
+
+When `action = "ask"` is triggered:
+1. A confirmation dialog appears with:
+   - Title: "Pi-Sanity"
+   - The reason from config (e.g., "Hidden files may contain secrets")
+   - The specific action being attempted (e.g., "Read file: ~/.bashrc")
+   - 30-second timeout (auto-dismisses as "deny")
+2. User choices:
+   - **Yes** → Operation proceeds
+   - **No** or **Esc** → Blocked with reason
+   - **Timeout** → Blocked with reason
+
+**Example Confirmation Dialog:**
+```
+Pi-Sanity (30s)
+Hidden files in home directory may contain secrets
+
+Read file: ~/.bashrc
+
+Allow this operation?
+```
 
 ### Path Pattern Syntax
 
