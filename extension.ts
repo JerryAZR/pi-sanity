@@ -59,13 +59,13 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
-    // Map "ask" to "deny" for now (simplest approach)
-    // result should always be defined for handled tools
+    // Handle different actions
     if (!result) {
       return undefined;
     }
     
-    if (result.action === "deny" || result.action === "ask") {
+    if (result.action === "deny") {
+      // Hard deny - no user prompt
       const reason = result.reason || `${event.toolName} blocked by policy`;
       
       if (ctx.hasUI) {
@@ -73,6 +73,29 @@ export default function (pi: ExtensionAPI) {
       }
       
       return { block: true, reason };
+    }
+    
+    if (result.action === "ask") {
+      // Ask user for confirmation
+      const reason = result.reason || `${event.toolName} requires confirmation`;
+      
+      if (!ctx.hasUI) {
+        // No UI available (e.g., print mode) - treat ask as deny
+        return { block: true, reason: `${reason} (no UI available)` };
+      }
+      
+      const confirmed = await ctx.ui.confirm(
+        "Pi-Sanity",
+        `${reason}\n\nAllow this operation?`,
+        { timeout: DEFAULT_ASK_TIMEOUT * 1000 }
+      );
+      
+      if (!confirmed) {
+        return { block: true, reason: "Blocked by user" };
+      }
+      
+      // User confirmed - allow the operation
+      return undefined;
     }
 
     // "allow" - let the tool execute normally

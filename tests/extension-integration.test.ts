@@ -16,6 +16,10 @@ function createMockUI() {
     notify: (message: string, type: string) => {
       // Notification called
     },
+    confirm: (title: string, message: string, options?: any) => {
+      // Mock confirmation - return false by default
+      return Promise.resolve(false);
+    },
   };
 }
 
@@ -288,7 +292,7 @@ describe("extension.ts integration", () => {
   });
 
   describe("UI notifications", () => {
-    it("should notify when blocking and UI is available", async () => {
+    it("should notify when blocking with deny action", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
       
@@ -302,19 +306,43 @@ describe("extension.ts integration", () => {
         notifyType = type;
       };
       
+      // Use a command that results in "deny" (not "ask")
       const event = {
-        toolName: "write",
+        toolName: "bash",
+        input: { command: "dd if=/dev/zero of=/tmp/test" },
+      };
+      
+      await pi.__simulateToolCall(event, ctx);
+      
+      assert.ok(notifyCalled, "Should call ui.notify when blocking with deny");
+      assert.ok(notifyMsg.includes("Blocked"), "Message should indicate blocking");
+      assert.strictEqual(notifyType, "warning", "Type should be warning");
+    });
+
+    it("should confirm when asking for user approval", async () => {
+      const { pi } = createMockPi();
+      extension(pi as ExtensionAPI);
+      
+      let confirmCalled = false;
+      const ctx = createMockContext(true);
+      ctx.ui.confirm = (title: string, msg: string, options?: any) => {
+        confirmCalled = true;
+        assert.ok(title.includes("Pi-Sanity"), "Title should be Pi-Sanity");
+        return Promise.resolve(false); // User cancels
+      };
+      
+      // Use a command that results in "ask"
+      const event = {
+        toolName: "read",
         input: { path: "~/.bashrc" },
       };
       
       await pi.__simulateToolCall(event, ctx);
       
-      assert.ok(notifyCalled, "Should call ui.notify when blocking");
-      assert.ok(notifyMsg.includes("Blocked"), "Message should indicate blocking");
-      assert.strictEqual(notifyType, "warning", "Type should be warning");
+      assert.ok(confirmCalled, "Should call ui.confirm for ask actions");
     });
 
-    it("should not notify when UI is not available", async () => {
+    it("should not show UI when UI is not available", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
       
