@@ -1,6 +1,6 @@
 # Pi-Sanity
 
-A [Pi](https://github.com/mariozechner/pi) extension that adds sanity checks to agent operations. It acts as a configurable safety net to prevent accidental file modifications and catch potentially dangerous commands before they execute.
+A [Pi](https://shittycodingagent.ai/) extension that adds sanity checks to agent operations. It acts as a configurable safety net to prevent accidental file modifications and catch potentially dangerous commands before they execute.
 
 > ⚠️ **IMPORTANT SAFETY DISCLAIMER**
 >
@@ -24,7 +24,7 @@ Think of it as a "seatbelt" for your agent—not a guarantee against all acciden
 ## Installation
 
 ```bash
-pi install @jerryan/pi-sanity
+pi install npm:@jerryan/pi-sanity
 ```
 
 Or add to your project's `.pi/config.toml`:
