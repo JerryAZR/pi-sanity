@@ -153,6 +153,33 @@ Pi-Sanity uses static analysis and intentionally avoids:
 
 This follows a "low friction over comprehensive protection" philosophy. See [LIMITATIONS.md](LIMITATIONS.md) for details.
 
+## Why "Low-Friction First"?
+
+### Approval Fatigue Is a Safety Issue
+
+Frequent approval prompts can be counterproductive:
+
+- **Habituation**: Users may start automatically clicking "yes" without reading
+- **Workarounds**: Users might configure `dangerously-skip-permissions` to avoid interruptions
+- **Missed real risks**: When every operation requires approval, genuine dangers blend into the noise
+
+Pi-Sanity intentionally allows most normal development operations and only intervenes on clearly suspicious actions. This keeps the signal-to-noise ratio high.
+
+### Alternative: pi-unbash
+
+This project is heavily inspired by [pi-unbash](https://github.com/jdiamond/pi-unbash), which takes a whitelist-based, ask-if-unsure approach. In theory, pi-unbash is **safer** than Pi-Sanity because it:
+
+- Whitelists known-safe commands rather than allowing unrecognized ones
+- Asks for confirmation more frequently
+- Takes a more conservative stance by default
+
+**Consider pi-unbash if:**
+- You don't mind frequent approval prompts
+- You want maximum safety and are willing to trade friction for it
+- You prefer a whitelist approach over blacklist
+
+Pi-Sanity exists for users who find that approach too interruptive for daily development workflows.
+
 ## License
 
 ISC
