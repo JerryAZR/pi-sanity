@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { checkBash, loadConfig, loadDefaultConfig, loadConfigFromString } from "../src/index.js";
+import { checkBash, checkWrite, loadConfig, loadDefaultConfig, loadConfigFromString } from "../src/index.js";
 import * as os from "node:os";
 
 describe("checkBash (public API)", () => {
@@ -289,6 +289,42 @@ default = "ask"
       // Pipeline of allowed commands
       const result = checkBash("cat file.txt | grep pattern", config);
       assert.strictEqual(result.action, "allow");
+    });
+  });
+
+  describe("config file protection", () => {
+    const config = loadDefaultConfig();
+
+    it("should ask when writing to .pi/sanity.toml", () => {
+      const result = checkWrite(".pi/sanity.toml", config);
+      assert.strictEqual(result.action, "ask");
+      assert.ok(result.reason?.includes("safety configuration"));
+    });
+
+    it("should ask when writing to .pi/config.toml", () => {
+      const result = checkWrite(".pi/config.toml", config);
+      assert.strictEqual(result.action, "ask");
+      assert.ok(result.reason?.includes("safety configuration"));
+    });
+
+    it("should allow writing to regular files in CWD", () => {
+      const result = checkWrite("regular-file.txt", config);
+      assert.strictEqual(result.action, "allow");
+    });
+  });
+
+  describe("config file deletion protection", () => {
+    const config = loadDefaultConfig();
+
+    it("should ask when deleting .pi/sanity.toml", async () => {
+      // Delete check uses bash command analysis
+      const result = checkBash("rm .pi/sanity.toml", config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should ask when deleting .pi/config.toml", async () => {
+      const result = checkBash("rm .pi/config.toml", config);
+      assert.strictEqual(result.action, "ask");
     });
   });
 
