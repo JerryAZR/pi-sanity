@@ -156,3 +156,9 @@ This follows a "low friction over comprehensive protection" philosophy. See [LIM
 ## License
 
 ISC
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
+
+By contributing, you agree that your contributions will be licensed under the ISC License.
