@@ -144,8 +144,9 @@ export function preprocessConfigPattern(
   pattern: string,
   context: PathContext,
 ): string {
-  // Patterns starting with ** should match anywhere, don't resolve to absolute
-  if (pattern.startsWith("**")) {
+  // Patterns starting with /** should match anywhere (absolute glob)
+  // Patterns starting with ** (no leading slash) are relative and resolve to CWD
+  if (pattern.startsWith("/**")) {
     return preprocessPath(pattern, context, { ...CONFIG_DEFAULTS, resolveRelative: false });
   }
   return preprocessPath(pattern, context, CONFIG_DEFAULTS);
