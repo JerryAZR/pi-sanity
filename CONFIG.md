@@ -102,6 +102,25 @@ path = ["{{HOME}}/.ssh/*.pub", "{{HOME}}/.ssh/config"]
 path = ["{{HOME}}/.*"]
 ```
 
+#### Windows Path Handling
+
+**Drive letters are stripped** from Windows paths for cross-platform consistency.
+
+| Before | After | Matches Pattern |
+|--------|-------|-----------------|
+| `C:/Users/file.txt` | `/Users/file.txt` | `/Users/**` |
+| `D:/data/file.txt` | `/data/file.txt` | `/data/**` |
+| `//server/share` | `//server/share` | `//server/**` (UNC paths preserved) |
+
+⚠️ **Warning:** This means `C:/file` and `D:/file` become the same path (`/file`). Patterns that need to distinguish drives should use `C:/` or `D:/` prefixes explicitly (though this is rarely needed).
+
+**For global patterns** that should match anywhere (regardless of drive), use `/**/` prefix:
+
+```toml
+# Matches node_modules anywhere, on any drive
+path = ["/**/node_modules/**"]
+```
+
 ---
 
 ## Part 2: Command Rules

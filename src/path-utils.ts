@@ -89,6 +89,19 @@ export function normalizeSeparators(input: string): string {
 }
 
 /**
+ * Strip Windows drive letters to make paths consistent across platforms.
+ * C:/path/to/file -> /path/to/file
+ * D:/data/file.txt -> /data/file.txt
+ * 
+ * This allows patterns like slash-star-star-slash-node_modules to match on both Unix and Windows.
+ * Warning: this means C:/file and D:/file become the same path (/file).
+ */
+export function stripDriveLetter(input: string): string {
+  // Match Windows drive letter pattern (e.g., C:, D:, etc.)
+  return input.replace(/^[a-zA-Z]:(?=\/)/, "");
+}
+
+/**
  * Unified path preprocessing function.
  * 
  * Handles both config patterns and runtime paths with appropriate defaults.
@@ -130,6 +143,10 @@ export function preprocessPath(
     result = normalizeSeparators(result);
   }
 
+  // Step 7: Strip Windows drive letters for cross-platform consistency
+  // C:/path becomes /path, matching Unix-style paths
+  result = stripDriveLetter(result);
+
   return result;
 }
 
@@ -138,7 +155,7 @@ export function preprocessPath(
  * Expands all variables and normalizes to forward slashes.
  * 
  * Example: "{{HOME}}/**" -> "/home/user/**"
- * Note: patterns starting with double-star-slash match anywhere
+ * Note: patterns starting with slash-star-star match anywhere
  */
 export function preprocessConfigPattern(
   pattern: string,
@@ -156,9 +173,9 @@ export function preprocessConfigPattern(
  * Preprocess a runtime file path for checking.
  * Expands tilde and env vars, resolves to absolute, normalizes to forward slashes.
  * 
- * Example: "~/.bashrc" → "/home/user/.bashrc"
- * Example: "$HOME/.bashrc" → "/home/user/.bashrc"
- * Example: "file.txt" → "/project/file.txt"
+ * Example: "~/.bashrc" -> "/home/user/.bashrc"
+ * Example: "$HOME/.bashrc" -> "/home/user/.bashrc"
+ * Example: "file.txt" -> "/project/file.txt"
  */
 export function preprocessRuntimePath(
   filePath: string,
