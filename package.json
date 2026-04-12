@@ -31,7 +31,8 @@
     "dist",
     "LICENSE",
     "README.md",
-    "CONFIG.md"
+    "CONFIG.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "embed-config": "node scripts/embed-config.js",
