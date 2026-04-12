@@ -32,6 +32,9 @@ export default function (pi: ExtensionAPI) {
     switch (event.toolName) {
       case "read": {
         const path = event.input.path as string;
+        if (!path) {
+          return { block: true, reason: "No path specified for read operation" };
+        }
         result = checkRead(path, config);
         break;
       }
@@ -39,12 +42,18 @@ export default function (pi: ExtensionAPI) {
       case "write":
       case "edit": {
         const path = event.input.path as string;
+        if (!path) {
+          return { block: true, reason: `No path specified for ${event.toolName} operation` };
+        }
         result = checkWrite(path, config);
         break;
       }
 
       case "bash": {
         const command = event.input.command as string;
+        if (!command) {
+          return { block: true, reason: "No command specified for bash operation" };
+        }
         result = checkBash(command, config);
         break;
       }

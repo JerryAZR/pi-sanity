@@ -7,29 +7,12 @@
 default_action = "allow"
 reason = "Unknown commands default to allow (low-friction)"
 
-# Common read commands
-[commands.cat]
+# Common read commands - all aliases of the same base config
+[commands.reader]
 default_action = "allow"
+aliases = ["cat", "head", "tail", "less", "more", "grep", "awk", "sed", "cut", "sort", "uniq", "wc"]
 
-[commands.cat.positionals]
-default_perm = "read"
-
-[commands.head]
-default_action = "allow"
-
-[commands.head.positionals]
-default_perm = "read"
-
-[commands.tail]
-default_action = "allow"
-
-[commands.tail.positionals]
-default_perm = "read"
-
-[commands.grep]
-default_action = "allow"
-
-[commands.grep.positionals]
+[commands.reader.positionals]
 default_perm = "read"
 
 # echo doesn't access files, but may have output redirects

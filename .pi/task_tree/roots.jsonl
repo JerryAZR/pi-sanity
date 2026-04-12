@@ -54,7 +54,12 @@
       "id": "1775978459016",
       "title": "Verify extension readiness",
       "createdAt": 1775978459016
+    },
+    {
+      "id": "1775993832416",
+      "title": "Verify current project state",
+      "createdAt": 1775993832416
     }
   ],
-  "activeId": "1775978459016"
+  "activeId": "1775993832416"
 }
