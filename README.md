@@ -68,11 +68,16 @@ Example interaction:
 ```
 Agent wants to: echo "secret" > ~/.env
 
-⚠️  Writing to home directory requires confirmation
-   Path: /home/user/.env
-   
-   Allow this operation? [y/N]: 
+⚠️  Pi-Sanity (30s)
+    Writing to home directory requires confirmation
+
+    Write file: /home/user/.env
+
+    Allow this operation?
+    [Yes] [No]
 ```
+
+If you select "Yes", the operation proceeds. If you select "No", press Escape, or let the 30-second timeout expire, the operation is blocked.
 
 ## Configuration
 
