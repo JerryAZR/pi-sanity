@@ -1,220 +1,146 @@
 # Pi-Sanity
 
-A [Pi](https://github.com/mariozechner/pi) extension that provides sanity checks on agent operations (read, write, bash commands). It acts as a configurable security/policy layer to prevent accidental or malicious file system operations.
+A [Pi](https://github.com/mariozechner/pi) extension that adds sanity checks to agent operations. It acts as a configurable security layer to prevent accidental file modifications and catch potentially dangerous commands before they execute.
 
-## Features
+## What It Does
 
-- **Path Permission Checks**: Control read, write, and delete operations based on configurable rules
-- **Bash Command Validation**: Parse and validate bash commands against permission rules
-- **Flexible Configuration**: TOML-based configuration with user and project-level overrides
-- **Variable Expansion**: Support for `{{HOME}}`, `{{CWD}}`, `{{REPO}}`, `{{TMPDIR}}`, `$ENV_VAR`, and `~`
-- **Hidden File Support**: Proper handling of hidden files and directories using picomatch
-- **Parse Error Handling**: Invalid bash syntax is denied with clear error messages
+Pi-Sanity intercepts agent operations and validates them against configurable rules:
+
+- **File Operations**: Checks reads, writes, and deletes against permission rules
+- **Command Validation**: Analyzes bash commands to detect potentially dangerous operations
+- **Smart Defaults**: Protects system directories, home folder, and git repositories while allowing normal development workflows
 
 ## Installation
 
 ```bash
-npm install pi-sanity
+pi install pi-sanity
 ```
 
-Requires Node.js >= 22.0.0
+Or add to your project's `.pi/config.toml`:
 
-## Quick Start
+```toml
+[extensions]
+pi-sanity = "latest"
+```
 
-```typescript
-import { checkRead, checkWrite, checkBash, loadDefaultConfig } from "pi-sanity";
+## Default Protection
 
-const config = loadDefaultConfig();
+Out of the box, Pi-Sanity provides sensible defaults:
 
-// Check if reading a file is allowed
-const readResult = checkRead("/etc/passwd", config);
-console.log(readResult.action); // "allow", "ask", or "deny"
+### File Operations
 
-// Check if writing is allowed
-const writeResult = checkWrite("~/.bashrc", config);
-if (writeResult.action === "deny") {
-  console.log(`Blocked: ${writeResult.reason}`);
-}
+| Operation | Default | Home Directory | Current Project | Temp Files |
+|-----------|---------|----------------|-----------------|------------|
+| **Read** | Allow | Ask for hidden files | Allow | Allow |
+| **Write** | Deny | Ask | Allow | Allow |
+| **Delete** | Deny | Ask | Allow | Allow |
 
-// Check bash commands
-const bashResult = checkBash("rm -rf /", config);
-if (bashResult.action === "deny") {
-  console.log(`Blocked: ${bashResult.reason}`);
-}
+### Command Rules
+
+- **Safe commands** (`cat`, `grep`, `cp`, `mv`, `rm`): Allowed with path checking
+- **Dangerous commands** (`dd`): Denied
+- **Package managers**: Local installs allowed, global installs denied
+- **Invalid syntax**: Parse errors are denied
+
+## When Pi-Sanity Intervenes
+
+Pi-Sanity may ask for confirmation when:
+
+- Reading hidden files in your home directory (`~/.bashrc`, `~/.ssh/*`, etc.)
+- Writing outside the current project directory
+- Deleting files outside the current project directory
+- Modifying git internals (`.git/` directory)
+- Using force flags (`rm -f`, `cp -f`, etc.)
+
+Example interaction:
+
+```
+Agent wants to: echo "secret" > ~/.env
+
+⚠️  Writing to home directory requires confirmation
+   Path: /home/user/.env
+   
+   Allow this operation? [y/N]: 
 ```
 
 ## Configuration
 
-Configuration is loaded from multiple sources (later overrides earlier):
+Pi-Sanity loads configuration from multiple sources:
 
-1. Built-in defaults (embedded at build time)
-2. User global config: `~/.pi/agent/sanity.toml`
-3. Project config: `.pi/sanity.toml`
+1. **Built-in defaults** - Sensible base protection
+2. **User config** - `~/.pi/agent/sanity.toml` - Your personal preferences
+3. **Project config** - `.pi/sanity.toml` - Project-specific rules
 
-### Example Configuration
+Later configs override earlier ones.
+
+### Common Customizations
+
+Create `.pi/sanity.toml` in your project:
 
 ```toml
-# Default action for unknown commands
-[commands._]
-default_action = "allow"
-reason = "Unknown commands default to allow (low-friction)"
+# Allow writing to a shared output directory
+[[permissions.write.overrides]]
+path = ["$SHARED_OUTPUT_DIR/**"]
+action = "allow"
+reason = "Shared build output directory"
 
-# Read permissions
-[permissions.read]
-default = "allow"
-
+# Protect sensitive project files
 [[permissions.read.overrides]]
-path = ["{{HOME}}/.*"]
+path = [".env", ".env.*"]
 action = "ask"
-reason = "Hidden files may contain secrets"
+reason = "Environment files may contain secrets"
+```
 
-# Write permissions (deny-first model)
+### Paranoid Mode
+
+For high-security environments, create `~/.pi/agent/sanity.toml`:
+
+```toml
 [permissions.write]
 default = "deny"
-reason = "Writing outside allowed locations requires permission"
-
-[[permissions.write.overrides]]
-path = ["{{HOME}}/**"]
-action = "ask"
-reason = "Writing to home directory requires confirmation"
+reason = "All writes require explicit approval"
 
 [[permissions.write.overrides]]
 path = ["{{CWD}}/**"]
-action = "allow"
-
-# Command-specific rules
-[commands.rm]
-default_action = "allow"
-
-[commands.rm.positionals]
-default_perm = "delete"
-
-[commands.rm.flags]
-"--force" = { action = "ask", reason = "Force bypasses confirmation" }
+action = "ask"
+reason = "Even project writes require confirmation"
 ```
 
-### Variable Expansion
+### CI/CD Mode
 
-Patterns support multiple variable syntaxes:
+For automated environments, be more permissive:
 
-- `{{HOME}}` - User's home directory
-- `{{CWD}}` - Current working directory
-- `{{REPO}}` - Git repository root (falls back to CWD)
-- `{{TMPDIR}}` - System temp directory
-- `$ENV_VAR` - Environment variable
-- `~` - Home directory shorthand
+```toml
+[permissions.write]
+default = "allow"
 
-## API Reference
+[permissions.delete]
+default = "allow"
 
-### High-Level Checkers
-
-#### `checkRead(filePath: string, config: SanityConfig): CheckResult`
-
-Check if reading a file is allowed.
-
-#### `checkWrite(filePath: string, config: SanityConfig): CheckResult`
-
-Check if writing a file is allowed.
-
-#### `checkBash(command: string, config: SanityConfig): CheckResult`
-
-Parse and validate a bash command against permission rules.
-
-Returns `{ action: "allow" | "ask" | "deny", reason?: string }`
-
-### Configuration Loading
-
-#### `loadDefaultConfig(): SanityConfig`
-
-Load only the built-in default configuration.
-
-#### `loadConfig(projectDir?: string): SanityConfig`
-
-Load and merge config from all sources (built-in, user, project).
-
-#### `loadConfigFromString(tomlContent: string): SanityConfig`
-
-Load config from a TOML string (useful for testing).
-
-### Types
-
-```typescript
-type Action = "allow" | "ask" | "deny";
-
-interface CheckResult {
-  action: Action;
-  reason?: string;
-}
-
-interface SanityConfig {
-  permissions: {
-    read: PermissionSection;
-    write: PermissionSection;
-    delete: PermissionSection;
-  };
-  commands: Record<string, CommandConfig>;
-}
+[[permissions.delete.overrides]]
+path = ["{{HOME}}/.ssh/**", "{{HOME}}/.aws/**"]
+action = "deny"
+reason = "Never delete credential files"
 ```
 
-## Pi Integration
+## Configuration Reference
 
-Add to your `package.json`:
+See [CONFIG.md](CONFIG.md) for complete documentation of:
 
-```json
-{
-  "pi": {
-    "extensions": [
-      "./node_modules/pi-sanity/dist/src/index.js"
-    ]
-  }
-}
-```
+- Permission sections (read, write, delete)
+- Path patterns and variable expansion
+- Command rules and flag restrictions
+- Environment pre-checks
 
-Or from source:
+## Limitations
 
-```json
-{
-  "pi": {
-    "extensions": [
-      "./src/index.ts"
-    ]
-  }
-}
-```
+Pi-Sanity uses static analysis and intentionally avoids:
 
-## Default Behavior
+- Executing commands to evaluate substitutions
+- Resolving symlinks at check time
+- Parsing dynamic execution (`eval`, `xargs`, etc.)
 
-### Read Permissions
-- Default: `allow`
-- Hidden files in home (`{{HOME}}/.*`): `ask`
-- SSH public keys (`{{HOME}}/.ssh/*.pub`): `allow`
-
-### Write Permissions
-- Default: `deny`
-- Home directory (`{{HOME}}/**`): `ask`
-- Current directory (`{{CWD}}/**`): `allow`
-- Temp directory (`{{TMPDIR}}/**`): `allow`
-- Git internals (`**/.git/**`): `ask`
-
-### Delete Permissions
-- Default: `deny`
-- Home directory (`{{HOME}}/**`): `ask`
-- Current directory (`{{CWD}}/**`): `allow`
-- Temp directory (`{{TMPDIR}}/**`): `allow`
-- Git internals (`**/.git/**`): `ask`
-
-### Command Rules
-- `cat`, `head`, `tail`, `grep`: allow with read checks
-- `cp`, `mv`, `rm`: allow with appropriate permission checks
-- `dd`: deny (low-level disk utility)
-- Package managers (`npm`, `pip`, etc.): allow local, deny global
-
-## Documentation
-
-- [Configuration Guide](CONFIG.md) - Complete configuration reference
-- [Implementation Notes](IMPLEMENTATION_NOTES.md) - Technical details and challenges
-- [Known Limitations](LIMITATIONS.md) - Design philosophy and trade-offs
-- [Testing](TESTING.md) - Testing guide
+This follows a "low friction over comprehensive protection" philosophy. See [LIMITATIONS.md](LIMITATIONS.md) for details.
 
 ## License
 
