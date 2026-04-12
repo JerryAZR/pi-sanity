@@ -84,9 +84,26 @@ export default function (pi: ExtensionAPI) {
         return { block: true, reason: `${reason} (no UI available)` };
       }
       
+      // Build message showing what action is being attempted
+      let actionDetails = "";
+      switch (event.toolName) {
+        case "read":
+          actionDetails = `Read file: ${event.input.path}`;
+          break;
+        case "write":
+          actionDetails = `Write file: ${event.input.path}`;
+          break;
+        case "edit":
+          actionDetails = `Edit file: ${event.input.path}`;
+          break;
+        case "bash":
+          actionDetails = `Run command: ${event.input.command}`;
+          break;
+      }
+      
       const confirmed = await ctx.ui.confirm(
         "Pi-Sanity",
-        `${reason}\n\nAllow this operation?`,
+        `${reason}\n\n${actionDetails}\n\nAllow this operation?`,
         { timeout: DEFAULT_ASK_TIMEOUT * 1000 }
       );
       

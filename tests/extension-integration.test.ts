@@ -324,9 +324,11 @@ describe("extension.ts integration", () => {
       extension(pi as ExtensionAPI);
       
       let confirmCalled = false;
+      let confirmMsg = "";
       const ctx = createMockContext(true);
       ctx.ui.confirm = (title: string, msg: string, options?: any) => {
         confirmCalled = true;
+        confirmMsg = msg;
         assert.ok(title.includes("Pi-Sanity"), "Title should be Pi-Sanity");
         return Promise.resolve(false); // User cancels
       };
@@ -340,6 +342,8 @@ describe("extension.ts integration", () => {
       await pi.__simulateToolCall(event, ctx);
       
       assert.ok(confirmCalled, "Should call ui.confirm for ask actions");
+      assert.ok(confirmMsg.includes("~/.bashrc"), "Message should include the file path");
+      assert.ok(confirmMsg.includes("Read file:"), "Message should show the action type");
     });
 
     it("should not show UI when UI is not available", async () => {
