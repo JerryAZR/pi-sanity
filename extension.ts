@@ -108,7 +108,7 @@ export default function (pi: ExtensionAPI) {
       );
       
       if (!confirmed) {
-        return { block: true, reason: "Blocked by user" };
+        return { block: true, reason: `${reason} (blocked by user)` };
       }
       
       // User confirmed - allow the operation

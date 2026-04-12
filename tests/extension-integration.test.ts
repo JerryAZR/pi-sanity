@@ -339,11 +339,16 @@ describe("extension.ts integration", () => {
         input: { path: "~/.bashrc" },
       };
       
-      await pi.__simulateToolCall(event, ctx);
+      const result = await pi.__simulateToolCall(event, ctx);
       
       assert.ok(confirmCalled, "Should call ui.confirm for ask actions");
       assert.ok(confirmMsg.includes("~/.bashrc"), "Message should include the file path");
       assert.ok(confirmMsg.includes("Read file:"), "Message should show the action type");
+      
+      // Check that the rejection reason includes the original policy reason
+      assert.ok(result && result.block === true, "Should block when user cancels");
+      assert.ok(result.reason.includes("Hidden files"), "Reason should include the original policy reason");
+      assert.ok(result.reason.includes("blocked by user"), "Reason should indicate user blocked it");
     });
 
     it("should not show UI when UI is not available", async () => {
