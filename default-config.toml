@@ -27,6 +27,12 @@ path = ["{{HOME}}/.*{,/**}"]
 action = "ask"
 reason = "Hidden files in home directory may contain secrets"
 
+# Allow reading npm package installations for documentation/types
+[[permissions.read.overrides]]
+path = ["/**/node_modules/**"]
+action = "allow"
+reason = "Reading installed npm package documentation and types"
+
 [[permissions.read.overrides]]
 path = ["{{HOME}}/.ssh/*.pub"]
 action = "allow"

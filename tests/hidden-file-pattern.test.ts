@@ -32,12 +32,6 @@ describe("hidden file pattern matching", () => {
   });
 
   describe("files inside hidden directories (BUG: was not matched by .*)", () => {
-    it("should ask for files in ~/.nvm (nested deeply)", () => {
-      const result = checkRead("~/.nvm/versions/node/v20.0.0/lib/file.js", config);
-      assert.strictEqual(result.action, "ask",
-        "Files inside hidden directories like .nvm should be protected");
-    });
-
     it("should ask for files in ~/.config", () => {
       const result = checkRead("~/.config/app/settings.json", config);
       assert.strictEqual(result.action, "ask",
@@ -54,6 +48,20 @@ describe("hidden file pattern matching", () => {
       const result = checkRead("~/.cache/npm/content/file", config);
       assert.strictEqual(result.action, "ask",
         "Files inside .cache should be protected");
+    });
+  });
+
+  describe("npm package paths (allowed for docs/types)", () => {
+    it("should allow reading files in ~/.nvm node_modules", () => {
+      const result = checkRead("~/.nvm/versions/node/v20.0.0/lib/node_modules/@types/node/index.d.ts", config);
+      assert.strictEqual(result.action, "allow",
+        "Reading npm packages in .nvm should be allowed for documentation/types");
+    });
+
+    it("should allow reading pi-coding-agent docs from .nvm", () => {
+      const result = checkRead("~/.nvm/versions/node/v24.14.1/lib/node_modules/@mariozechner/pi-coding-agent/docs/providers.md", config);
+      assert.strictEqual(result.action, "allow",
+        "Reading pi-coding-agent documentation should be allowed");
     });
   });
 

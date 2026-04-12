@@ -137,12 +137,17 @@ export function preprocessPath(
  * Preprocess a config pattern for glob matching.
  * Expands all variables and normalizes to forward slashes.
  * 
- * Example: "{{HOME}}/**" → "/home/user/**"
+ * Example: "{{HOME}}/**" -> "/home/user/**"
+ * Note: patterns starting with double-star-slash match anywhere
  */
 export function preprocessConfigPattern(
   pattern: string,
   context: PathContext,
 ): string {
+  // Patterns starting with ** should match anywhere, don't resolve to absolute
+  if (pattern.startsWith("**")) {
+    return preprocessPath(pattern, context, { ...CONFIG_DEFAULTS, resolveRelative: false });
+  }
   return preprocessPath(pattern, context, CONFIG_DEFAULTS);
 }
 
