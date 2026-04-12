@@ -1,14 +1,25 @@
 # Pi-Sanity
 
-A [Pi](https://github.com/mariozechner/pi) extension that adds sanity checks to agent operations. It acts as a configurable security layer to prevent accidental file modifications and catch potentially dangerous commands before they execute.
+A [Pi](https://github.com/mariozechner/pi) extension that adds sanity checks to agent operations. It acts as a configurable safety net to prevent accidental file modifications and catch potentially dangerous commands before they execute.
+
+> ⚠️ **IMPORTANT SAFETY DISCLAIMER**
+>
+> **Pi-Sanity provides NO GUARANTEED SAFETY.** This is not a security extension and does not prevent carefully-crafted or obfuscated malicious commands from executing.
+>
+> - The intention is only to prevent **careless mistakes** while adding as little friction as possible to general development workflows
+> - This is **NOT a replacement** for Docker-like containers or OS-level sandboxes—those still provide the utmost safety
+> - Determined users can bypass these checks through command obfuscation, encoding, or other techniques
+> - For true isolation, use proper sandboxing technologies like containers, VMs, or restricted user accounts
 
 ## What It Does
 
 Pi-Sanity intercepts agent operations and validates them against configurable rules:
 
-- **File Operations**: Checks reads, writes, and deletes against permission rules
-- **Command Validation**: Analyzes bash commands to detect potentially dangerous operations
+- **File Operations**: Checks reads, writes, and deletes against permission rules to prevent accidental changes
+- **Command Validation**: Analyzes bash commands to detect potentially dangerous operations that might be typos or mistakes
 - **Smart Defaults**: Protects system directories, home folder, and git repositories while allowing normal development workflows
+
+Think of it as a "seatbelt" for your agent—not a guarantee against all accidents, but helpful protection against common mistakes.
 
 ## Installation
 
