@@ -23,7 +23,7 @@ default_action = "allow"
 default = "allow"
 
 [[permissions.read.overrides]]
-path = ["{{HOME}}/.*"]
+path = ["{{HOME}}/.*{,/**}"]
 action = "ask"
 reason = "Hidden files in home directory may contain secrets"
 
