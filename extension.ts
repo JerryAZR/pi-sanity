@@ -12,7 +12,7 @@ import {
   checkBash,
   loadConfig,
   type SanityConfig,
-} from "../src/index.js";
+} from "./src/index.js";
 
 // Default ask timeout in seconds (placeholder for future use)
 const DEFAULT_ASK_TIMEOUT = 30;
@@ -51,6 +51,11 @@ export default function (pi: ExtensionAPI) {
     }
 
     // Map "ask" to "deny" for now (simplest approach)
+    // result should always be defined for handled tools
+    if (!result) {
+      return undefined;
+    }
+    
     if (result.action === "deny" || result.action === "ask") {
       const reason = result.reason || `${event.toolName} blocked by policy`;
       

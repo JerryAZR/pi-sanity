@@ -49,7 +49,12 @@
       "id": "1775976790707",
       "title": "Verify core readiness",
       "createdAt": 1775976790707
+    },
+    {
+      "id": "1775978459016",
+      "title": "Verify extension readiness",
+      "createdAt": 1775978459016
     }
   ],
-  "activeId": "1775976790707"
+  "activeId": "1775978459016"
 }
