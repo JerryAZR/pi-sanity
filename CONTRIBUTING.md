@@ -125,6 +125,33 @@ npm test
 npm run build
 ```
 
+### Architecture Notes
+
+#### Compiled Entry Point vs Pi-Style Source
+
+This extension uses a **compiled entry point** (`dist/extension.js`) rather than the pi-style direct TypeScript loading (`index.ts`). This is an intentional architectural decision:
+
+**Why compiled?**
+
+1. **Build-time config embedding**: We embed `default-config.toml` into the compiled output via `scripts/embed-config.js`, ensuring the default configuration is always available without runtime file system dependencies.
+
+2. **npm distribution**: The compiled `dist/` directory is what gets published to npm, making installation cleaner for users.
+
+3. **Hot reload works**: Despite being compiled, `/reload` picks up changes to:
+   - User global config (`~/.pi/agent/sanity.toml`) ✅
+   - Project-level config (`.pi/sanity.toml`) ✅
+
+**Trade-offs:**
+
+- After changing TypeScript source, you must run `npm run build` before `/reload` picks up the changes
+- The embedded default config requires a rebuild to update
+
+**Why not switch to `index.ts`?**
+
+While pi supports loading TypeScript directly via jiti (which would eliminate the build step for development), we'd lose the ability to embed the default config at build time. The current approach is a reasonable balance between development convenience and runtime reliability.
+
+**Workflow tip:** Use `npm run build` after code changes, or set up a watch mode with `tsc --watch` if you're making frequent changes during development.
+
 ## Testing Your Changes
 
 ### Unit Tests

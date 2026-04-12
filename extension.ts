@@ -18,8 +18,8 @@ import {
 const DEFAULT_ASK_TIMEOUT = 30;
 
 export default function (pi: ExtensionAPI) {
-  // Load configuration
-  const config = loadConfig();
+  // Load configuration with current working directory for project-level config
+  const config = loadConfig(process.cwd());
 
   pi.on("tool_call", async (event, ctx) => {
     // Only handle built-in tools we care about

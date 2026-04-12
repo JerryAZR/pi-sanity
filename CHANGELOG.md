@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2025-04-12
+
+### Fixed
+- Fixed project-level config (`.pi/sanity.toml`) not being loaded. `loadConfig()` was called without `projectDir`, causing the project config lookup to be skipped entirely.
+
+### Documentation
+- Added architecture notes explaining compiled entry point vs pi-style source loading
+- Clarified hot-reload behavior for user and project configs in README
+
 ## [0.1.1] - 2025-04-12
 
 ### Fixed

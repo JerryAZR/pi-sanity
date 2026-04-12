@@ -83,11 +83,11 @@ If you select "Yes", the operation proceeds. If you select "No", press Escape, o
 
 Pi-Sanity loads configuration from multiple sources:
 
-1. **Built-in defaults** - Sensible base protection
-2. **User config** - `~/.pi/agent/sanity.toml` - Your personal preferences
-3. **Project config** - `.pi/sanity.toml` - Project-specific rules
+1. **Built-in defaults** - Sensible base protection (requires rebuild to modify)
+2. **User config** - `~/.pi/agent/sanity.toml` - Your personal preferences (hot-reloadable)
+3. **Project config** - `.pi/sanity.toml` - Project-specific rules (hot-reloadable)
 
-Later configs override earlier ones.
+Later configs override earlier ones. Use `/reload` in Pi to pick up changes to user or project config without restarting.
 
 ### Common Customizations
 
