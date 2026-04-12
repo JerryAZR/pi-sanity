@@ -28,10 +28,6 @@ action = "ask"
 reason = "Hidden files in home directory may contain secrets"
 
 [[permissions.read.overrides]]
-path = ["/dev/null", "/dev/zero", "/dev/random", "/dev/urandom", "/dev/stdin", "/dev/stdout", "/dev/stderr"]
-action = "allow"
-reason = "Special device files are safe to read from"
-[[permissions.read.overrides]]
 path = ["/**/node_modules/**"]
 action = "allow"
 reason = "Reading installed npm package documentation and types"
