@@ -37,8 +37,10 @@
   "scripts": {
     "embed-config": "node scripts/embed-config.js",
     "build": "npm run embed-config && tsc",
-    "test": "npm run build && node run-tests.js",
-    "test:ci": "npm run build && node --test --test-reporter=./tests/reporter.js dist/tests/*.test.js",
+    "test": "npm run build && node --test dist/tests/**/*.test.js",
+    "test:ci": "npm run build && node --test dist/tests/**/*.test.js",
+    "test:unit": "npm run build && node --test dist/tests/unit/**/*.test.js",
+    "test:integration": "npm run build && node --test dist/tests/integration/**/*.test.js",
     "check": "tsc --noEmit"
   },
   "dependencies": {
