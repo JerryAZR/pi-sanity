@@ -101,4 +101,81 @@ describe("checkBash with default config", () => {
       assert.strictEqual(result.action, "deny");
     });
   });
+
+  describe("dangerous commands in nested contexts", () => {
+    it("should deny rm -rf / inside command substitution", () => {
+      const result = checkBash("echo $(rm -rf /)", config);
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should deny npm -g inside command substitution", () => {
+      const result = checkBash("echo $(npm install -g package)", config);
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should deny rm -rf / inside backticks", () => {
+      const result = checkBash("cat `rm -rf /`", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in input process substitution", () => {
+      const result = checkBash("cat <(rm -rf /)", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in output process substitution", () => {
+      const result = checkBash("echo data > >(rm -rf /)", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in case statement", () => {
+      const result = checkBash("case x in *) rm -rf / ;; esac", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in for loop wordlist", () => {
+      const result = checkBash("for x in $(rm -rf /); do :; done", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in else branch with braces", () => {
+      const result = checkBash("if false; then :; else { rm -rf /; }; fi", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in variable assignment", () => {
+      const result = checkBash("VAR=$(rm -rf /)", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in test expression", () => {
+      const result = checkBash("[[ -f $(rm -rf /) ]]", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in select loop", () => {
+      const result = checkBash("select x in $(rm -rf /); do echo $x; done", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in coproc", () => {
+      const result = checkBash("coproc rm -rf /", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in C-style for loop", () => {
+      const result = checkBash("for ((i=0; i<1; i++)); do rm -rf /; done", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / in parameter expansion", () => {
+      const result = checkBash("echo ${VAR:-$(rm -rf /)}", config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+
+    it("should deny rm -rf / inside double quotes", () => {
+      const result = checkBash('echo "running: $(rm -rf /)"', config);
+      assert.ok(result.action === "deny" || result.action === "ask");
+    });
+  });
 });

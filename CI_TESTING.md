@@ -6,7 +6,7 @@ Update your GitHub Actions workflow:
 
 ```yaml
 - name: Run tests
-  run: npm run build && node --test --test-reporter=tap dist/tests/*.test.js
+  run: npm run build && node --test --test-reporter=tap dist/tests/unit/**/*.test.js dist/tests/integration/**/*.test.js
 ```
 
 TAP format is machine-readable and CI systems can parse it for better display.
@@ -15,17 +15,17 @@ TAP format is machine-readable and CI systems can parse it for better display.
 
 ```yaml
 - name: Run tests
-  run: npm run build && node --test --test-reporter=spec dist/tests/*.test.js 2>&1 | tee test-results.txt
+  run: npm run build && node --test --test-reporter=spec dist/tests/unit/**/*.test.js dist/tests/integration/**/*.test.js 2>&1 | tee test-results.txt
   
 - name: Show only failures
   if: failure()
   run: grep -A5 "✖" test-results.txt || true
 ```
 
-### Option 3: Use the Custom Reporter (test:ci script)
+### Option 3: Use the npm Scripts (Recommended)
 
 ```yaml
-- name: Run tests with custom reporter
+- name: Run tests
   run: npm run test:ci
 ```
 
@@ -33,7 +33,7 @@ TAP format is machine-readable and CI systems can parse it for better display.
 
 ```yaml
 - name: Run tests
-  run: npm run build && node --test --test-reporter=./tests/junit-reporter.js dist/tests/*.test.js > junit.xml
+  run: npm run build && node --test --test-reporter=./tests/junit-reporter.js dist/tests/unit/**/*.test.js dist/tests/integration/**/*.test.js > junit.xml
   
 - name: Upload test results
   uses: actions/upload-artifact@v3
@@ -46,5 +46,25 @@ TAP format is machine-readable and CI systems can parse it for better display.
 
 | Script | Description |
 |--------|-------------|
-| `npm test` | Default - runs tests with summary |
-| `npm run test:ci` | CI-optimized - shows failures first |
+| `npm test` | Default - runs unit and integration tests only |
+| `npm run test:ci` | CI-optimized - same as `npm test` |
+| `npm run test:unit` | Unit tests only (fast) |
+| `npm run test:integration` | Integration tests only |
+| `npm run test:deprecated` | Old tests (reference only) |
+| `npm run test:all` | All tests including deprecated |
+
+### Test Structure
+
+```
+tests/
+├── unit/              # Fast isolated tests
+│   ├── bash/
+│   ├── config/
+│   ├── path-utils/
+│   └── permissions/
+├── integration/       # Tests with default config
+│   ├── checker/
+│   ├── scenarios/
+│   └── extension/
+└── gaps/              # (Removed - limitations documented in LIMITATIONS.md)
+```

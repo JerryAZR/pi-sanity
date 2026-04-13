@@ -143,7 +143,13 @@ export function preprocessPath(
     result = normalizeSeparators(result);
   }
 
-  // Step 7: Strip Windows drive letters for cross-platform consistency
+  // Step 7: Strip trailing slashes (except for root "/")
+  // This ensures consistent behavior across platforms
+  if (result.length > 1 && result.endsWith("/")) {
+    result = result.slice(0, -1);
+  }
+
+  // Step 8: Strip Windows drive letters for cross-platform consistency
   // C:/path becomes /path, matching Unix-style paths
   result = stripDriveLetter(result);
 

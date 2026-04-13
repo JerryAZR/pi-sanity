@@ -70,39 +70,17 @@ describe("preprocessConfigPattern", () => {
   });
 });
 
-describe("glob matching with picomatch", () => {
-  it("should match exact path", () => {
-    assert.strictEqual(picomatch.isMatch("/home/user/file.txt", "/home/user/file.txt"), true);
-  });
-
-  it("should match with * wildcard", () => {
-    assert.strictEqual(picomatch.isMatch("file.txt", "*.txt"), true);
-    assert.strictEqual(picomatch.isMatch("file.log", "*.txt"), false);
-  });
-
-  it("should match with ** wildcard", () => {
-    assert.strictEqual(picomatch.isMatch("/a/b/c/file.txt", "**/*.txt"), true);
-    assert.strictEqual(picomatch.isMatch("/file.txt", "**/*.txt"), true);
-  });
-
-  it("should match with ? wildcard", () => {
-    assert.strictEqual(picomatch.isMatch("/file1.txt", "/file?.txt"), true);
-    assert.strictEqual(picomatch.isMatch("/file12.txt", "/file?.txt"), false);
-  });
-
-  it("should match directory patterns", () => {
-    assert.strictEqual(picomatch.isMatch("/src/components/Button.tsx", "src/**/*.tsx"), true);
-    assert.strictEqual(picomatch.isMatch("/src/main.tsx", "src/**/*.tsx"), true);
-  });
-
-  it("should match .git directory pattern", () => {
-    assert.strictEqual(picomatch.isMatch("/project/.git/config", "**/.git/**"), true);
-    assert.strictEqual(picomatch.isMatch("/project/submodule/.git/HEAD", "**/.git/**"), true);
-  });
-
-  it("should handle expanded patterns", () => {
+describe("expanded patterns work with picomatch", () => {
+  it("should match paths using expanded patterns", () => {
     const pattern = preprocessConfigPattern("{{CWD}}/**", testContext);
     assert.strictEqual(picomatch.isMatch("/project/file.txt", pattern), true);
     assert.strictEqual(picomatch.isMatch("/other/file.txt", pattern), false);
+  });
+
+  it("should match .git paths with expanded patterns", () => {
+    const pattern = preprocessConfigPattern("{{REPO}}/**/.git/**", testContext);
+    assert.strictEqual(picomatch.isMatch("/project/.git/config", pattern), true);
+    assert.strictEqual(picomatch.isMatch("/project/submodule/.git/HEAD", pattern), true);
+    assert.strictEqual(picomatch.isMatch("/other/.git/config", pattern), false);
   });
 });
