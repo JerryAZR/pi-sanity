@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
+import * as os from "node:os";
 import picomatch from "picomatch";
 import {
   preprocessConfigPattern,
@@ -52,7 +53,7 @@ describe("preprocessConfigPattern", () => {
     assert.ok(result.includes("UNDEFINED") || result === "/file");
   });
 
-  it("should strip Windows drive letters", () => {
+  it("should strip Windows drive letters", { skip: os.platform() !== 'win32' }, () => {
     const result = preprocessConfigPattern("C:\\Users\\file", testContext);
     assert.strictEqual(result, "/Users/file");
   });

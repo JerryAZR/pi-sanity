@@ -2,26 +2,44 @@
  * Test runner that works cross-platform with better CI output
  * Shows failures prominently and provides a summary
  */
-import { readdirSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const testsDir = join(__dirname, "dist", "tests");
 
-const files = readdirSync(testsDir)
-  .filter((f) => f.endsWith(".test.js"))
-  .map((f) => join(testsDir, f));
+// Recursively find all test files in directory
+function findTestFiles(dir) {
+  const files: string[] = [];
+  
+  for (const item of readdirSync(dir)) {
+    const fullPath = join(dir, item);
+    const stat = statSync(fullPath);
+    
+    if (stat.isDirectory()) {
+      files.push(...findTestFiles(fullPath));
+    } else if (item.endsWith(".test.js")) {
+      files.push(fullPath);
+    }
+  }
+  
+  return files;
+}
+
+const testsDir = join(__dirname, "dist", "tests");
+const files = findTestFiles(testsDir).filter(f => 
+  f.includes("/unit/") || f.includes("/integration/")
+);
 
 if (files.length === 0) {
-  console.error("❌ No test files found");
+  console.error("❌ No test files found in dist/tests/unit/ or dist/tests/integration/");
   process.exit(1);
 }
 
 console.log(`🧪 Running ${files.length} test file(s)...\n`);
 
-// Use the spec reporter with tap for better CI visibility
+// Use the spec reporter for better CI visibility
 const args = ["--test", "--test-reporter=spec", ...files];
 const child = spawn(process.execPath, args, { stdio: "pipe" });
 
