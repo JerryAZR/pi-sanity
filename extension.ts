@@ -27,14 +27,21 @@ export default function (pi: ExtensionAPI) {
    * session_start, tool_result, and tool_call).
    * Returns the current config for use by tool_call.
    */
-  function refreshConfig(
-    ctx: { hasUI: boolean; ui: { setWidget: (key: string, content: string[] | undefined, opts?: any) => void } }
-  ): SanityConfig {
+  function refreshConfig(ctx: { hasUI: boolean; ui: any }): SanityConfig {
     const config = configManager.get();
     const warnings = configManager.drainWarnings();
     if (ctx.hasUI) {
       if (warnings.length > 0) {
-        ctx.ui.setWidget("pi-sanity-warn", warnings, { placement: "aboveEditor" });
+        ctx.ui.setWidget(
+          "pi-sanity-warn",
+          (_tui: any, theme: any) => ({
+            render(_width: number): string[] {
+              return warnings.map((w) => theme.fg("warning", w));
+            },
+            invalidate() {},
+          }),
+          { placement: "aboveEditor" },
+        );
       } else {
         ctx.ui.setWidget("pi-sanity-warn", undefined);
       }

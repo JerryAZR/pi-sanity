@@ -11,7 +11,7 @@ function createMockUI() {
       return Promise.resolve(false);
     },
     setStatus: (key: string, text: string | undefined) => {},
-    setWidget: (key: string, content: string[] | undefined, options?: any) => {},
+    setWidget: (key: string, content: string[] | ((tui: any, theme: any) => any) | undefined, options?: any) => {},
   };
 }
 
