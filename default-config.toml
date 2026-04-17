@@ -22,16 +22,34 @@ default_action = "allow"
 [permissions.read]
 default = "allow"
 
+# Known locations that commonly contain secrets or credentials.
+# These ask for confirmation rather than deny, since the user may
+# legitimately want to view them (e.g., checking ssh config).
 [[permissions.read.overrides]]
-path = ["{{HOME}}/.*{,/**}"]
+path = [
+  "{{HOME}}/.ssh/*",
+  "{{HOME}}/.aws/**",
+  "{{HOME}}/.config/gcloud/**",
+  "{{HOME}}/.azure/**",
+  "{{HOME}}/.netrc",
+  "{{HOME}}/.pgpass",
+  "{{HOME}}/.my.cnf",
+  "{{HOME}}/.npmrc",
+  "{{HOME}}/.pypirc",
+  "{{HOME}}/.git-credentials",
+  "{{HOME}}/.docker/config.json",
+  "{{HOME}}/.kube/config",
+]
 action = "ask"
-reason = "Hidden files in home directory may contain secrets"
+reason = "May contain credentials or secrets"
 
+# Exceptions: safe dev paths that should not trigger confirmation
 [[permissions.read.overrides]]
-path = ["/**/node_modules/**"]
+path = ["**/node_modules/**"]
 action = "allow"
 reason = "Reading installed npm package documentation and types"
 
+# Public SSH keys are safe to read (exception to ~/.ssh/* above)
 [[permissions.read.overrides]]
 path = ["{{HOME}}/.ssh/*.pub"]
 action = "allow"

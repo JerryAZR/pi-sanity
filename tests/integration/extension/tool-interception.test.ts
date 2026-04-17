@@ -72,7 +72,7 @@ describe("extension tool interception", () => {
       
       const event = {
         toolName: "read",
-        input: { path: "~/.bashrc" },
+        input: { path: "~/.ssh/id_rsa" },
       };
       
       const result = await pi.__simulateToolCall(event, createMockContext());
@@ -118,7 +118,7 @@ describe("extension tool interception", () => {
       
       const event = {
         toolName: "write",
-        input: { path: "~/.bashrc" },
+        input: { path: "~/.ssh/id_rsa" },
       };
       
       const result = await pi.__simulateToolCall(event, createMockContext());
@@ -149,7 +149,7 @@ describe("extension tool interception", () => {
       
       const event = {
         toolName: "edit",
-        input: { path: "~/.bashrc" },
+        input: { path: "~/.ssh/id_rsa" },
       };
       
       const result = await pi.__simulateToolCall(event, createMockContext());
@@ -249,7 +249,7 @@ describe("extension tool interception", () => {
       
       const event = {
         toolName: "read",
-        input: { path: "~/.bashrc" },
+        input: { path: "~/.aws/credentials" },
       };
       
       const result = await pi.__simulateToolCall(event, ctx);
@@ -267,7 +267,7 @@ describe("extension tool interception", () => {
       
       const event = {
         toolName: "write",
-        input: { path: "~/.bashrc" },
+        input: { path: "~/.aws/credentials" },
       };
       
       const result = await pi.__simulateToolCall(event, ctx);

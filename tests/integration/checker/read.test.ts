@@ -24,24 +24,41 @@ describe("checkRead with default config", () => {
     });
   });
 
-  describe("hidden files in HOME", () => {
-    it("should ask for ~/.bashrc", () => {
-      const result = checkRead(`${home}/.bashrc`, config);
+  describe("secret files in HOME", () => {
+    it("should ask for ~/.ssh/id_rsa (private key)", () => {
+      const result = checkRead(`${home}/.ssh/id_rsa`, config);
       assert.strictEqual(result.action, "ask");
     });
 
-    it("should ask for ~/.zshrc", () => {
-      const result = checkRead(`${home}/.zshrc`, config);
+    it("should ask for ~/.aws/credentials", () => {
+      const result = checkRead(`${home}/.aws/credentials`, config);
       assert.strictEqual(result.action, "ask");
     });
 
-    it("should ask for ~/.config/app/settings.json", () => {
-      const result = checkRead(`${home}/.config/app/settings.json`, config);
+    it("should ask for ~/.netrc", () => {
+      const result = checkRead(`${home}/.netrc`, config);
       assert.strictEqual(result.action, "ask");
     });
 
     it("should allow SSH public key", () => {
       const result = checkRead(`${home}/.ssh/id_rsa.pub`, config);
+      assert.strictEqual(result.action, "allow");
+    });
+  });
+
+  describe("non-secret hidden files in HOME", () => {
+    it("should allow ~/.bashrc (shell config)", () => {
+      const result = checkRead(`${home}/.bashrc`, config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should allow ~/.zshrc (shell config)", () => {
+      const result = checkRead(`${home}/.zshrc`, config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should allow ~/.config/app/settings.json (app config)", () => {
+      const result = checkRead(`${home}/.config/app/settings.json`, config);
       assert.strictEqual(result.action, "allow");
     });
   });

@@ -3,46 +3,71 @@ import assert from "node:assert";
 import * as os from "os";
 import { checkRead, checkWrite, checkDelete, checkBash, loadDefaultConfig } from "../../../src/index.js";
 
-describe("hidden files scenarios", () => {
+describe("secret paths scenarios", () => {
   const config = loadDefaultConfig();
   const home = os.homedir();
 
-  describe("files directly in home (traditional hidden files)", () => {
-    it("should ask for ~/.bashrc read", () => {
+  describe("known credential locations", () => {
+    it("should ask for ~/.aws/credentials", () => {
+      const result = checkRead(`${home}/.aws/credentials`, config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should ask for ~/.ssh/id_rsa (private key)", () => {
+      const result = checkRead(`${home}/.ssh/id_rsa`, config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should ask for ~/.netrc", () => {
+      const result = checkRead(`${home}/.netrc`, config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should ask for ~/.kube/config", () => {
+      const result = checkRead(`${home}/.kube/config`, config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should ask for ~/.docker/config.json", () => {
+      const result = checkRead(`${home}/.docker/config.json`, config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should ask for ~/.npmrc", () => {
+      const result = checkRead(`${home}/.npmrc`, config);
+      assert.strictEqual(result.action, "ask");
+    });
+  });
+
+  describe("safe paths that should be allowed", () => {
+    it("should allow ~/.bashrc (shell config, not a secret)", () => {
       const result = checkRead(`${home}/.bashrc`, config);
-      assert.strictEqual(result.action, "ask");
+      assert.strictEqual(result.action, "allow");
     });
 
-    it("should ask for ~/.bashrc write", () => {
-      const result = checkWrite(`${home}/.bashrc`, config);
-      assert.strictEqual(result.action, "ask");
-    });
-
-    it("should ask for ~/.zshrc", () => {
+    it("should allow ~/.zshrc (shell config, not a secret)", () => {
       const result = checkRead(`${home}/.zshrc`, config);
-      assert.strictEqual(result.action, "ask");
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should allow ~/.cargo (Rust crate cache)", () => {
+      const result = checkRead(`${home}/.cargo`, config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should allow files in ~/.config (generic app config)", () => {
+      const result = checkRead(`${home}/.config/app/settings.json`, config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should allow files in ~/.cache", () => {
+      const result = checkRead(`${home}/.cache/npm/content/file`, config);
+      assert.strictEqual(result.action, "allow");
     });
 
     it("should allow SSH public key", () => {
       const result = checkRead(`${home}/.ssh/id_rsa.pub`, config);
       assert.strictEqual(result.action, "allow");
-    });
-  });
-
-  describe("files inside hidden directories", () => {
-    it("should ask for files in ~/.config", () => {
-      const result = checkRead(`${home}/.config/app/settings.json`, config);
-      assert.strictEqual(result.action, "ask");
-    });
-
-    it("should ask for files in ~/.local/share", () => {
-      const result = checkRead(`${home}/.local/share/applications/app.desktop`, config);
-      assert.strictEqual(result.action, "ask");
-    });
-
-    it("should ask for files in ~/.cache", () => {
-      const result = checkRead(`${home}/.cache/npm/content/file`, config);
-      assert.strictEqual(result.action, "ask");
     });
   });
 
