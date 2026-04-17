@@ -10,6 +10,7 @@ function createMockUI() {
     confirm: (title: string, message: string, options?: any) => {
       return Promise.resolve(false);
     },
+    setStatus: (key: string, text: string | undefined) => {},
   };
 }
 

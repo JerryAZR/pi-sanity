@@ -20,26 +20,30 @@ export default function (pi: ExtensionAPI) {
   // Load configuration with lazy reload on file changes
   const configManager = new ConfigManager(process.cwd());
 
-  /**
-   * Drain and display any accumulated config warnings.
-   * Call after get() or forceReload() to surface issues via pi UI.
-   */
-  function showWarnings(ctx: { hasUI: boolean; ui: { notify: (msg: string, type: "warning") => void } }) {
+  pi.on("session_start", async (_event, ctx) => {
+    // Config warnings from initial load or /reload are invisible when
+    // shown via notify() because they get buried under session history.
+    // Use a persistent footer status instead; it gets cleared on the
+    // first tool_call when we show the actual messages via notify().
+    if (configManager.hasWarnings() && ctx.hasUI) {
+      ctx.ui.setStatus("pi-sanity-warn", "⚠ pi-sanity config warning");
+    }
+  });
+
+  pi.on("tool_call", async (event, ctx) => {
+    // Get latest config (reloads if files changed) and drain warnings.
+    const config = configManager.get();
+
     for (const warning of configManager.drainWarnings()) {
       if (ctx.hasUI) {
         ctx.ui.notify(warning, "warning");
       }
     }
-  }
 
-  pi.on("tool_call", async (event, ctx) => {
-    // Get latest config (reloads if files changed).
-    // Warnings from the reload (invalid TOML, bad overrides, etc.)
-    // are drained and shown here. Note: warnings appear lazily on
-    // the next tool call after a config file change, because
-    // ctx.ui.notify() is only reliable inside tool_call handlers.
-    const config = configManager.get();
-    showWarnings(ctx);
+    // Clear the persistent status now that warnings have been shown.
+    if (ctx.hasUI) {
+      ctx.ui.setStatus("pi-sanity-warn", undefined);
+    }
 
     // Only handle built-in tools we care about
     if (!["read", "write", "edit", "bash"].includes(event.toolName)) {

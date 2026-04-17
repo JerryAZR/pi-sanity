@@ -167,6 +167,33 @@ describe("ConfigManager", () => {
     });
   });
 
+  describe("hasWarnings", () => {
+    it("should return false when no warnings", () => {
+      const manager = new ConfigManager(tmpDir);
+      assert.strictEqual(manager.hasWarnings(), false);
+    });
+
+    it("should return true when initial load produces warnings", () => {
+      const configPath = path.join(tmpDir, ".pi", "sanity.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(configPath, 'this is not valid toml = { [\n', "utf-8");
+
+      const manager = new ConfigManager(tmpDir);
+      assert.strictEqual(manager.hasWarnings(), true);
+    });
+
+    it("should return true after drainWarnings until cleared", () => {
+      const configPath = path.join(tmpDir, ".pi", "sanity.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(configPath, 'this is not valid toml = { [\n', "utf-8");
+
+      const manager = new ConfigManager(tmpDir);
+      assert.strictEqual(manager.hasWarnings(), true);
+      manager.drainWarnings();
+      assert.strictEqual(manager.hasWarnings(), false);
+    });
+  });
+
   describe("drainWarnings", () => {
     it("should capture and drain warnings from invalid TOML", () => {
       const configPath = path.join(tmpDir, ".pi", "sanity.toml");

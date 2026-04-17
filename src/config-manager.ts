@@ -69,6 +69,13 @@ export class ConfigManager {
     return result;
   }
 
+  /**
+   * Check if there are pending warnings without clearing them.
+   */
+  hasWarnings(): boolean {
+    return this.warnings.length > 0;
+  }
+
   private makeSink(): WarningSink {
     return (msg: string) => this.warnings.push(msg);
   }
