@@ -36,13 +36,11 @@ export default function (pi: ExtensionAPI) {
           "pi-sanity-warn",
           (_tui: any, theme: any) => ({
             render(width: number): string[] {
-              const border = "─".repeat(Math.max(2, width - 2));
+              const rule = theme.fg("warning", "─".repeat(Math.max(1, width)));
               return [
-                theme.fg("warning", "┌" + border + "┐"),
-                ...warnings.map((w) =>
-                  theme.fg("warning", "│ " + w)
-                ),
-                theme.fg("warning", "└" + border + "┘"),
+                rule,
+                ...warnings.map((w) => theme.fg("warning", w)),
+                rule,
               ];
             },
             invalidate() {},

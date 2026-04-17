@@ -19,7 +19,12 @@
       "id": "1776439502892",
       "title": "Handle malformed config files gracefully",
       "createdAt": 1776439502892
+    },
+    {
+      "id": "1776445734409",
+      "title": "Investigate pi widget borders/decorations",
+      "createdAt": 1776445734409
     }
   ],
-  "activeId": "1776439502892"
+  "activeId": "1776445734409"
 }
