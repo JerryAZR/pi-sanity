@@ -9,7 +9,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { loadConfig } from "./config-loader.js";
+import { loadConfig, loadDefaultConfig } from "./config-loader.js";
 import type { SanityConfig } from "./config-types.js";
 
 export class ConfigManager {
@@ -19,24 +19,33 @@ export class ConfigManager {
 
   constructor(projectDir: string) {
     this.projectDir = projectDir;
-    this.config = this.reload();
+    const initial = this.reload();
+    this.config = initial ?? loadDefaultConfig();
   }
 
   /**
    * Get the current config, reloading if any tracked file has changed.
+   * If reload fails, keeps the previous config and logs a warning.
    */
   get(): SanityConfig {
     if (this.hasChanged()) {
-      this.config = this.reload();
+      const reloaded = this.reload();
+      if (reloaded) {
+        this.config = reloaded;
+      }
     }
     return this.config;
   }
 
   /**
    * Force immediate reload regardless of mtime.
+   * If reload fails, keeps the previous config and logs a warning.
    */
   forceReload(): SanityConfig {
-    this.config = this.reload();
+    const reloaded = this.reload();
+    if (reloaded) {
+      this.config = reloaded;
+    }
     return this.config;
   }
 
@@ -95,8 +104,9 @@ export class ConfigManager {
 
   /**
    * Reload config from disk and update tracked mtimes.
+   * Returns undefined on failure so the caller can keep the previous config.
    */
-  private reload(): SanityConfig {
+  private reload(): SanityConfig | undefined {
     this.mtimes.clear();
 
     for (const p of this.configPaths()) {
@@ -107,6 +117,12 @@ export class ConfigManager {
       }
     }
 
-    return loadConfig(this.projectDir);
+    try {
+      return loadConfig(this.projectDir);
+    } catch (err: any) {
+      const message = err?.message || String(err);
+      console.warn(`[pi-sanity] Config reload failed, keeping previous config: ${message}`);
+      return undefined;
+    }
   }
 }

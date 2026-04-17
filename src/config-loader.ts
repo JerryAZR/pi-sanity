@@ -40,24 +40,46 @@ function createConfigContext(): PathContext {
  * Preprocess all path patterns in a config.
  * Expands variables ({{HOME}}, {{CWD}}, etc.) and normalizes paths.
  * Called after config loading/merging so patterns are ready to use.
+ * Skips invalid overrides (missing path or action) with a warning.
  */
 function preprocessConfigPatterns(config: SanityConfig): void {
   const ctx = createConfigContext();
 
-  // Preprocess read permission patterns
-  for (const override of config.permissions.read.overrides) {
-    override.path = override.path.map(p => preprocessConfigPattern(p, ctx));
+  config.permissions.read.overrides = filterValidOverrides(config.permissions.read.overrides, "read", ctx);
+  config.permissions.write.overrides = filterValidOverrides(config.permissions.write.overrides, "write", ctx);
+  config.permissions.delete.overrides = filterValidOverrides(config.permissions.delete.overrides, "delete", ctx);
+}
+
+function filterValidOverrides(
+  overrides: any[],
+  sectionName: string,
+  ctx: PathContext,
+): import("./config-types.js").OverrideRule[] {
+  const valid: import("./config-types.js").OverrideRule[] = [];
+
+  for (let i = 0; i < overrides.length; i++) {
+    const o = overrides[i];
+    if (!o || typeof o !== "object") {
+      console.warn(`[pi-sanity] Skipping invalid override #${i} in [permissions.${sectionName}]: not an object`);
+      continue;
+    }
+    if (!Array.isArray(o.path)) {
+      console.warn(`[pi-sanity] Skipping invalid override #${i} in [permissions.${sectionName}]: missing or invalid 'path' (expected array)`);
+      continue;
+    }
+    if (!["allow", "ask", "deny"].includes(o.action)) {
+      console.warn(`[pi-sanity] Skipping invalid override #${i} in [permissions.${sectionName}]: missing or invalid 'action' (got: ${o.action})`);
+      continue;
+    }
+
+    valid.push({
+      path: o.path.map((p: any) => typeof p === "string" ? preprocessConfigPattern(p, ctx) : "").filter(Boolean),
+      action: o.action,
+      reason: typeof o.reason === "string" ? o.reason : undefined,
+    });
   }
 
-  // Preprocess write permission patterns
-  for (const override of config.permissions.write.overrides) {
-    override.path = override.path.map(p => preprocessConfigPattern(p, ctx));
-  }
-
-  // Preprocess delete permission patterns
-  for (const override of config.permissions.delete.overrides) {
-    override.path = override.path.map(p => preprocessConfigPattern(p, ctx));
-  }
+  return valid;
 }
 
 /**
@@ -115,14 +137,20 @@ export function loadConfig(projectDir?: string): SanityConfig {
     "sanity.toml",
   );
   if (fs.existsSync(userConfigPath)) {
-    configs.push(expandAliases(loadTomlFile(userConfigPath)));
+    const userConfig = loadTomlFile(userConfigPath);
+    if (userConfig) {
+      configs.push(expandAliases(userConfig));
+    }
   }
 
   // 3. Project config (.pi/sanity.toml)
   if (projectDir) {
     const projectConfigPath = path.join(projectDir, ".pi", "sanity.toml");
     if (fs.existsSync(projectConfigPath)) {
-      configs.push(expandAliases(loadTomlFile(projectConfigPath)));
+      const projectConfig = loadTomlFile(projectConfigPath);
+      if (projectConfig) {
+        configs.push(expandAliases(projectConfig));
+      }
     }
   }
 
@@ -136,11 +164,18 @@ export function loadConfig(projectDir?: string): SanityConfig {
 }
 
 /**
- * Parse a single TOML config file
+ * Parse a single TOML config file.
+ * Returns undefined and logs a warning on parse error instead of crashing.
  */
-function loadTomlFile(filePath: string): Partial<SanityConfig> {
-  const content = fs.readFileSync(filePath, "utf-8");
-  return parse(content) as Partial<SanityConfig>;
+function loadTomlFile(filePath: string): Partial<SanityConfig> | undefined {
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    return parse(content) as Partial<SanityConfig>;
+  } catch (err: any) {
+    const message = err?.message || String(err);
+    console.warn(`[pi-sanity] Failed to load config from ${filePath}: ${message}`);
+    return undefined;
+  }
 }
 
 /**
@@ -254,10 +289,13 @@ function mergePermissionSection(
   target: PermissionSection,
   source: Partial<PermissionSection>,
 ): PermissionSection {
+  const sourceOverrides = Array.isArray(source.overrides)
+    ? source.overrides
+    : [];
   return {
     default: source.default ?? target.default,
     reason: source.reason ?? target.reason,
-    overrides: [...target.overrides, ...(source.overrides ?? [])],
+    overrides: [...target.overrides, ...sourceOverrides],
   };
 }
 

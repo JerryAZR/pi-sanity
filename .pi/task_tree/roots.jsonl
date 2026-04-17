@@ -14,7 +14,12 @@
       "id": "1776438822946",
       "title": "Add ConfigManager with lazy reload",
       "createdAt": 1776438822946
+    },
+    {
+      "id": "1776439502892",
+      "title": "Handle malformed config files gracefully",
+      "createdAt": 1776439502892
     }
   ],
-  "activeId": "1776438822946"
+  "activeId": "1776439502892"
 }
