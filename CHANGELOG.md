@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-04-17
+
+### Changed
+- **Read rules are now targeted instead of blanket.** Previously all hidden files in `~` (`{{HOME}}/.*`) triggered "ask". Now only known credential locations trigger confirmation: `~/.ssh/*`, `~/.aws/**`, `~/.config/gcloud/**`, `~/.azure/**`, `~/.netrc`, `~/.pgpass`, `~/.my.cnf`, `~/.npmrc`, `~/.pypirc`, `~/.git-credentials`, `~/.docker/config.json`, `~/.kube/config`. Public SSH keys (`~/.ssh/*.pub`) remain explicitly allowed. This means dev caches like `~/.cargo`, `~/.npm`, `~/.config` no longer trigger false positives.
+- Switched glob matching from custom logic to `picomatch` for standard, well-tested pattern behavior.
+- Preprocess patterns at config load time (expand `{{HOME}}`, `{{CWD}}`, etc.) so `matchesGlob()` is a thin wrapper around `picomatch.isMatch()`.
+- Reorganized test suite into `tests/unit` and `tests/integration` with a clear separation of concerns.
+
+### Added
+- `ConfigManager` with lazy mtime-based config reload. Tracks `~/.pi/agent/sanity.toml` and `.pi/sanity.toml`; reloads automatically on the next tool call when files change. Handles create, modify, delete.
+- Graceful handling of malformed config files:
+  - Invalid TOML syntax → skipped with `[pi-sanity] Failed to load config from {path}: {message}` warning; extension continues with remaining configs.
+  - Malformed overrides (missing `path`, non-array `path`, missing/invalid `action`) → skipped individually with descriptive warnings.
+  - Reload failure → falls back to embedded defaults, never crashes.
+
+### Fixed
+- Removed redundant `**/node_modules/**` allow rule; node_modules paths were never in the blacklist to begin with.
+- Removed pointless unit tests that were testing Node.js's built-in `path.matchesGlob` instead of our code.
+
 ## [0.1.2] - 2025-04-12
 
 ### Fixed
