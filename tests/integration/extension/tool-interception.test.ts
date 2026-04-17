@@ -11,6 +11,7 @@ function createMockUI() {
       return Promise.resolve(false);
     },
     setStatus: (key: string, text: string | undefined) => {},
+    setWidget: (key: string, content: string[] | undefined, options?: any) => {},
   };
 }
 
@@ -29,6 +30,11 @@ function createMockPi(): { pi: any; calls: any[] } {
       if (!handler) return undefined;
       return await handler(event, ctx);
     },
+    __simulateSessionStart: async (event: any, ctx: any) => {
+      const handler = handlers.get('session_start');
+      if (!handler) return undefined;
+      return await handler(event, ctx);
+    },
   };
 
   return { pi, calls };
@@ -43,12 +49,14 @@ function createMockContext(hasUI = true): any {
 
 describe("extension tool interception", () => {
   describe("registration", () => {
-    it("should register for tool_call events", () => {
+    it("should register for tool_call and session_start events", () => {
       const { pi, calls } = createMockPi();
       extension(pi as ExtensionAPI);
       
       assert.ok(calls.some(c => c.type === 'on' && c.event === 'tool_call'),
         "Extension should register for tool_call events");
+      assert.ok(calls.some(c => c.type === 'on' && c.event === 'session_start'),
+        "Extension should register for session_start events");
     });
   });
 

@@ -23,10 +23,11 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     // Config warnings from initial load or /reload are invisible when
     // shown via notify() because they get buried under session history.
-    // Use a persistent footer status instead; it gets cleared on the
-    // first tool_call when we show the actual messages via notify().
+    // Use a persistent widget above the editor instead; it stays visible
+    // and gets cleared on the first tool_call when we show the actual
+    // messages via notify().
     if (configManager.hasWarnings() && ctx.hasUI) {
-      ctx.ui.setStatus("pi-sanity-warn", "⚠ pi-sanity config warning");
+      ctx.ui.setWidget("pi-sanity-warn", ["⚠ pi-sanity: config warning — will show details on next tool call"], { placement: "aboveEditor" });
     }
   });
 
@@ -40,9 +41,9 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
-    // Clear the persistent status now that warnings have been shown.
+    // Clear the persistent widget now that warnings have been shown.
     if (ctx.hasUI) {
-      ctx.ui.setStatus("pi-sanity-warn", undefined);
+      ctx.ui.setWidget("pi-sanity-warn", undefined);
     }
 
     // Only handle built-in tools we care about
