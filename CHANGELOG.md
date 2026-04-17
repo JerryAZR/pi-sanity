@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-04-18
+
+### Changed
+- Config warnings (invalid TOML, malformed overrides) now display via `ctx.ui.setWidget()` with `theme.fg("warning")` styling and horizontal-rule separators, instead of `notify()`. This makes them persistent and visible across all hooks (`session_start`, `tool_result`, `tool_call`).
+- Unified `refreshConfig()` helper: all three hooks use the same load→drain→display flow.
+- Removed `notify()` call for hard-deny actions; block reason is returned in the tool result instead.
+
+### Fixed
+- Removed stale compiled test files (`dist/tests/*.test.js`) from before the test-directory restructure that were causing phantom test failures in `npm run test:all`.
+
 ## [0.2.1] - 2025-04-17
 
 ### Changed

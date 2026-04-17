@@ -1,6 +1,6 @@
 {
   "name": "@jerryan/pi-sanity",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Pi extension for sanity checks on agent operations",
   "type": "module",
   "license": "Apache-2.0",
