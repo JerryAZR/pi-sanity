@@ -42,7 +42,7 @@ Out of the box, Pi-Sanity provides sensible defaults:
 
 | Operation | Default | Home Directory | Current Project | Temp Files |
 |-----------|---------|----------------|-----------------|------------|
-| **Read** | Allow | Ask for hidden files | Allow | Allow |
+| **Read** | Allow | Ask for credential files | Allow | Allow |
 | **Write** | Deny | Ask | Allow | Allow |
 | **Delete** | Deny | Ask | Allow | Allow |
 
@@ -57,7 +57,7 @@ Out of the box, Pi-Sanity provides sensible defaults:
 
 Pi-Sanity may ask for confirmation when:
 
-- Reading hidden files in your home directory (`~/.bashrc`, `~/.ssh/*`, etc.)
+- Reading known credential locations (`~/.ssh/*`, `~/.aws/**`, `~/.kube/config`, etc.)
 - Writing outside the current project directory
 - Deleting files outside the current project directory
 - Modifying git internals (`.git/` directory)
@@ -87,7 +87,7 @@ Pi-Sanity loads configuration from multiple sources:
 2. **User config** - `~/.pi/agent/sanity.toml` - Your personal preferences (hot-reloadable)
 3. **Project config** - `.pi/sanity.toml` - Project-specific rules (hot-reloadable)
 
-Later configs override earlier ones. Use `/reload` in Pi to pick up changes to user or project config without restarting.
+Later configs override earlier ones. Changes to user or project config are picked up automatically on the next tool call (lazy mtime check).
 
 ### Common Customizations
 

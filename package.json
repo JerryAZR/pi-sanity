@@ -24,16 +24,18 @@
     "bash",
     "security"
   ],
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
+    },
+    "./extension": "./dist/extension.js"
+  },
   "engines": {
     "node": ">=22.0.0"
   },
-  "files": [
-    "dist",
-    "LICENSE",
-    "README.md",
-    "CONFIG.md",
-    "CHANGELOG.md"
-  ],
   "scripts": {
     "embed-config": "node scripts/embed-config.js",
     "build": "npm run embed-config && tsc",

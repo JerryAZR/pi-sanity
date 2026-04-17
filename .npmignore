@@ -1,0 +1,33 @@
+# Exclude test files from npm package
+dist/tests
+dist/tests-deprecated
+
+# Source files (only at root level, not dist/src)
+/src
+/tests
+/tests-deprecated
+/extension.ts
+
+# Build scripts and config
+/scripts
+/tsconfig.json
+*.config.js
+*.config.ts
+
+# Dev artifacts
+node_modules
+.git
+.github
+.pi
+*.log
+
+# Docs and notes that shouldn't be in the package
+/CONFIG.md
+/LIMITATIONS.md
+/CONTRIBUTING.md
+/IMPLEMENTATION_NOTES.md
+/PROJECT_OVERVIEW.md
+/TESTING.md
+/reference
+/run-tests.js
+/default-config.toml
