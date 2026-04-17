@@ -43,12 +43,6 @@ path = [
 action = "ask"
 reason = "May contain credentials or secrets"
 
-# Exceptions: safe dev paths that should not trigger confirmation
-[[permissions.read.overrides]]
-path = ["**/node_modules/**"]
-action = "allow"
-reason = "Reading installed npm package documentation and types"
-
 # Public SSH keys are safe to read (exception to ~/.ssh/* above)
 [[permissions.read.overrides]]
 path = ["{{HOME}}/.ssh/*.pub"]
