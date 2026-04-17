@@ -11,60 +11,10 @@
       "createdAt": 1775825508549
     },
     {
-      "id": "019d-7d08-35e8",
-      "title": "Clean up debug logging and hardcoded paths",
-      "createdAt": 1775919183336
-    },
-    {
-      "id": "1775968747529",
-      "title": "Current task",
-      "createdAt": 1775968747529
-    },
-    {
-      "id": "1775969152499",
-      "title": "Fix hidden dir glob matching",
-      "createdAt": 1775969152499
-    },
-    {
-      "id": "1775969781006",
-      "title": "Verify test failures",
-      "createdAt": 1775969781006
-    },
-    {
-      "id": "1775970318219",
-      "title": "Replace glob library",
-      "createdAt": 1775970318219
-    },
-    {
-      "id": "1775973540739",
-      "title": "Unify path preprocessing",
-      "createdAt": 1775973540739
-    },
-    {
-      "id": "1775976198662",
-      "title": "Git commit",
-      "createdAt": 1775976198662
-    },
-    {
-      "id": "1775976790707",
-      "title": "Verify core readiness",
-      "createdAt": 1775976790707
-    },
-    {
-      "id": "1775978459016",
-      "title": "Verify extension readiness",
-      "createdAt": 1775978459016
-    },
-    {
-      "id": "1775993832416",
-      "title": "Verify current project state",
-      "createdAt": 1775993832416
-    },
-    {
-      "id": "1776005973239",
-      "title": "Pre-Publish Checklist",
-      "createdAt": 1776005973239
+      "id": "1776438822946",
+      "title": "Add ConfigManager with lazy reload",
+      "createdAt": 1776438822946
     }
   ],
-  "activeId": "1776005973239"
+  "activeId": "1776438822946"
 }

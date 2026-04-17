@@ -10,18 +10,20 @@ import {
   checkRead,
   checkWrite,
   checkBash,
-  loadConfig,
-  type SanityConfig,
+  ConfigManager,
 } from "./src/index.js";
 
 // Default ask timeout in seconds (placeholder for future use)
 const DEFAULT_ASK_TIMEOUT = 30;
 
 export default function (pi: ExtensionAPI) {
-  // Load configuration with current working directory for project-level config
-  const config = loadConfig(process.cwd());
+  // Load configuration with lazy reload on file changes
+  const configManager = new ConfigManager(process.cwd());
 
   pi.on("tool_call", async (event, ctx) => {
+    // Get latest config (reloads if files changed)
+    const config = configManager.get();
+
     // Only handle built-in tools we care about
     if (!["read", "write", "edit", "bash"].includes(event.toolName)) {
       return undefined;
@@ -63,27 +65,27 @@ export default function (pi: ExtensionAPI) {
     if (!result) {
       return undefined;
     }
-    
+
     if (result.action === "deny") {
       // Hard deny - no user prompt
       const reason = result.reason || `${event.toolName} blocked by policy`;
-      
+
       if (ctx.hasUI) {
         ctx.ui.notify(`Blocked: ${reason}`, "warning");
       }
-      
+
       return { block: true, reason };
     }
-    
+
     if (result.action === "ask") {
       // Ask user for confirmation
       const reason = result.reason || `${event.toolName} requires confirmation`;
-      
+
       if (!ctx.hasUI) {
         // No UI available (e.g., print mode) - treat ask as deny
         return { block: true, reason: `${reason} (no UI available)` };
       }
-      
+
       // Build message showing what action is being attempted
       let actionDetails = "";
       switch (event.toolName) {
@@ -100,17 +102,17 @@ export default function (pi: ExtensionAPI) {
           actionDetails = `Run command: ${event.input.command}`;
           break;
       }
-      
+
       const confirmed = await ctx.ui.confirm(
         "Pi-Sanity",
         `${reason}\n\n${actionDetails}\n\nAllow this operation?`,
         { timeout: DEFAULT_ASK_TIMEOUT * 1000 }
       );
-      
+
       if (!confirmed) {
         return { block: true, reason: `${reason} (blocked by user)` };
       }
-      
+
       // User confirmed - allow the operation
       return undefined;
     }
