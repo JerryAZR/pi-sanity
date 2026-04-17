@@ -35,6 +35,11 @@ function createMockPi(): { pi: any; calls: any[] } {
       if (!handler) return undefined;
       return await handler(event, ctx);
     },
+    __simulateToolResult: async (event: any, ctx: any) => {
+      const handler = handlers.get('tool_result');
+      if (!handler) return undefined;
+      return await handler(event, ctx);
+    },
   };
 
   return { pi, calls };
@@ -49,12 +54,14 @@ function createMockContext(hasUI = true): any {
 
 describe("extension tool interception", () => {
   describe("registration", () => {
-    it("should register for tool_call and session_start events", () => {
+    it("should register for tool_call, tool_result and session_start events", () => {
       const { pi, calls } = createMockPi();
       extension(pi as ExtensionAPI);
       
       assert.ok(calls.some(c => c.type === 'on' && c.event === 'tool_call'),
         "Extension should register for tool_call events");
+      assert.ok(calls.some(c => c.type === 'on' && c.event === 'tool_result'),
+        "Extension should register for tool_result events");
       assert.ok(calls.some(c => c.type === 'on' && c.event === 'session_start'),
         "Extension should register for session_start events");
     });
