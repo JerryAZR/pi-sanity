@@ -12,6 +12,7 @@ import {
   checkBash,
   ConfigManager,
 } from "./src/index.js";
+import type { SanityConfig } from "./src/config-types.js";
 
 // Default ask timeout in seconds (placeholder for future use)
 const DEFAULT_ASK_TIMEOUT = 30;
@@ -21,24 +22,14 @@ export default function (pi: ExtensionAPI) {
   const configManager = new ConfigManager(process.cwd());
 
   /**
-   * Show or refresh the persistent config-warning widget.
-   * Call when warnings exist but haven't been drained yet.
+   * Reload config if files changed, drain any warnings, and notify.
+   * Clears the warning widget regardless (it's recreated if new warnings appear).
+   * Returns the current config for use by tool_call.
    */
-  function showBanner(ctx: { hasUI: boolean; ui: { setWidget: (key: string, content: string[] | undefined, opts?: any) => void } }) {
-    if (ctx.hasUI) {
-      ctx.ui.setWidget(
-        "pi-sanity-warn",
-        ["⚠ pi-sanity: config warning — details will appear on next tool call"],
-        { placement: "aboveEditor" },
-      );
-    }
-  }
-
-  /**
-   * Drain warnings via notify() and clear the banner.
-   * Call from tool_call where UI is fully reliable.
-   */
-  function drainAndNotify(ctx: { hasUI: boolean; ui: { notify: (msg: string, type: "warning") => void; setWidget: (key: string, content: string[] | undefined, opts?: any) => void } }) {
+  function refreshConfig(
+    ctx: { hasUI: boolean; ui: { notify: (msg: string, type: "warning") => void; setWidget: (key: string, content: string[] | undefined, opts?: any) => void } }
+  ): SanityConfig {
+    const config = configManager.get();
     for (const warning of configManager.drainWarnings()) {
       if (ctx.hasUI) {
         ctx.ui.notify(warning, "warning");
@@ -47,28 +38,19 @@ export default function (pi: ExtensionAPI) {
     if (ctx.hasUI) {
       ctx.ui.setWidget("pi-sanity-warn", undefined);
     }
+    return config;
   }
 
   pi.on("session_start", async (_event, ctx) => {
-    // Startup or /reload: banner survives session-history rendering.
-    if (configManager.hasWarnings()) {
-      showBanner(ctx);
-    }
+    refreshConfig(ctx);
   });
 
   pi.on("tool_result", async (_event, ctx) => {
-    // Detect config changes immediately after a tool executes
-    // (e.g. a write/edit tool that modified a config file).
-    configManager.get();
-    if (configManager.hasWarnings()) {
-      showBanner(ctx);
-    }
+    refreshConfig(ctx);
   });
 
   pi.on("tool_call", async (event, ctx) => {
-    // Reload if needed, then drain and display any warnings.
-    const config = configManager.get();
-    drainAndNotify(ctx);
+    const config = refreshConfig(ctx);
 
     // Only handle built-in tools we care about
     if (!["read", "write", "edit", "bash"].includes(event.toolName)) {
