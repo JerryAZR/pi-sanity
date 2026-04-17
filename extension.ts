@@ -35,8 +35,15 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.setWidget(
           "pi-sanity-warn",
           (_tui: any, theme: any) => ({
-            render(_width: number): string[] {
-              return warnings.map((w) => theme.fg("warning", w));
+            render(width: number): string[] {
+              const border = "─".repeat(Math.max(2, width - 2));
+              return [
+                theme.fg("warning", "┌" + border + "┐"),
+                ...warnings.map((w) =>
+                  theme.fg("warning", "│ " + w)
+                ),
+                theme.fg("warning", "└" + border + "┘"),
+              ];
             },
             invalidate() {},
           }),
