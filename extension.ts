@@ -108,13 +108,10 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (result.action === "deny") {
-      // Hard deny - no user prompt
+      // Hard deny - no user prompt. The reason is shown in the tool result
+      // output; no separate notify() needed since we use the widget for all
+      // persistent warnings.
       const reason = result.reason || `${event.toolName} blocked by policy`;
-
-      if (ctx.hasUI) {
-        ctx.ui.notify(`Blocked: ${reason}`, "warning");
-      }
-
       return { block: true, reason };
     }
 

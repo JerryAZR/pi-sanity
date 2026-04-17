@@ -20,6 +20,8 @@ function createMockUI() {
       // Mock confirmation - return false by default
       return Promise.resolve(false);
     },
+    setStatus: (key: string, text: string | undefined) => {},
+    setWidget: (key: string, content: string[] | ((tui: any, theme: any) => any) | undefined, options?: any) => {},
   };
 }
 
@@ -292,19 +294,11 @@ describe("extension.ts integration", () => {
   });
 
   describe("UI notifications", () => {
-    it("should notify when blocking with deny action", async () => {
+    it("should return block result for deny action without notify", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
       
-      let notifyCalled = false;
-      let notifyMsg = "";
-      let notifyType = "";
       const ctx = createMockContext(true);
-      ctx.ui.notify = (msg: string, type: string) => {
-        notifyCalled = true;
-        notifyMsg = msg;
-        notifyType = type;
-      };
       
       // Use a command that results in "deny" (not "ask")
       const event = {
@@ -312,11 +306,10 @@ describe("extension.ts integration", () => {
         input: { command: "dd if=/dev/zero of=/tmp/test" },
       };
       
-      await pi.__simulateToolCall(event, ctx);
+      const result = await pi.__simulateToolCall(event, ctx);
       
-      assert.ok(notifyCalled, "Should call ui.notify when blocking with deny");
-      assert.ok(notifyMsg.includes("Blocked"), "Message should indicate blocking");
-      assert.strictEqual(notifyType, "warning", "Type should be warning");
+      assert.ok(result && result.block === true, "Should block with deny action");
+      assert.ok(result.reason, "Should include reason");
     });
 
     it("should confirm when asking for user approval", async () => {
