@@ -4,32 +4,41 @@
  * Tracks config file modification times and reloads when they change.
  * The embedded default config is always loaded; user and project configs
  * are tracked for changes.
+ *
+ * Warnings (invalid TOML, bad overrides, etc.) are accumulated and can be
+ * drained by the integration layer for display via pi UI.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { loadConfig, loadDefaultConfig } from "./config-loader.js";
+import type { WarningSink } from "./config-loader.js";
 import type { SanityConfig } from "./config-types.js";
 
 export class ConfigManager {
   private config: SanityConfig;
   private projectDir: string;
   private mtimes: Map<string, number | undefined> = new Map();
+  private warnings: string[] = [];
 
   constructor(projectDir: string) {
     this.projectDir = projectDir;
-    const initial = this.reload();
-    this.config = initial ?? loadDefaultConfig();
+    const sink = this.makeSink();
+    const initial = this.reload(sink);
+    this.config = initial ?? loadDefaultConfig(sink);
   }
 
   /**
    * Get the current config, reloading if any tracked file has changed.
-   * If reload fails, keeps the previous config and logs a warning.
+   * If reload fails, keeps the previous config.
+   *
+   * Call drainWarnings() after this to surface any config issues via UI.
    */
   get(): SanityConfig {
     if (this.hasChanged()) {
-      const reloaded = this.reload();
+      const sink = this.makeSink();
+      const reloaded = this.reload(sink);
       if (reloaded) {
         this.config = reloaded;
       }
@@ -39,14 +48,29 @@ export class ConfigManager {
 
   /**
    * Force immediate reload regardless of mtime.
-   * If reload fails, keeps the previous config and logs a warning.
+   * If reload fails, keeps the previous config.
    */
   forceReload(): SanityConfig {
-    const reloaded = this.reload();
+    const sink = this.makeSink();
+    const reloaded = this.reload(sink);
     if (reloaded) {
       this.config = reloaded;
     }
     return this.config;
+  }
+
+  /**
+   * Return and clear accumulated warnings.
+   * Call after get() or forceReload() to display config issues via UI.
+   */
+  drainWarnings(): string[] {
+    const result = [...this.warnings];
+    this.warnings = [];
+    return result;
+  }
+
+  private makeSink(): WarningSink {
+    return (msg: string) => this.warnings.push(msg);
   }
 
   /**
@@ -106,7 +130,7 @@ export class ConfigManager {
    * Reload config from disk and update tracked mtimes.
    * Returns undefined on failure so the caller can keep the previous config.
    */
-  private reload(): SanityConfig | undefined {
+  private reload(sink: WarningSink): SanityConfig | undefined {
     this.mtimes.clear();
 
     for (const p of this.configPaths()) {
@@ -118,10 +142,10 @@ export class ConfigManager {
     }
 
     try {
-      return loadConfig(this.projectDir);
+      return loadConfig(this.projectDir, sink);
     } catch (err: any) {
       const message = err?.message || String(err);
-      console.warn(`[pi-sanity] Config reload failed, keeping previous config: ${message}`);
+      sink(`[pi-sanity] Config reload failed, keeping previous config: ${message}`);
       return undefined;
     }
   }

@@ -10,7 +10,6 @@ import * as path from "path";
 import * as os from "os";
 import { parse } from "smol-toml";
 import type {
-  Action,
   CommandConfig,
   FlagConfig,
   PermissionSection,
@@ -23,6 +22,13 @@ import {
   preprocessConfigPattern,
   type PathContext,
 } from "./path-utils.js";
+
+/** Sink for non-fatal config warnings. Falls back to console.warn if not provided. */
+export type WarningSink = (msg: string) => void;
+
+function defaultSink(msg: string): void {
+  console.warn(msg);
+}
 
 /**
  * Create a PathContext for config preprocessing
@@ -42,33 +48,35 @@ function createConfigContext(): PathContext {
  * Called after config loading/merging so patterns are ready to use.
  * Skips invalid overrides (missing path or action) with a warning.
  */
-function preprocessConfigPatterns(config: SanityConfig): void {
+function preprocessConfigPatterns(config: SanityConfig, onWarning?: WarningSink): void {
+  const sink = onWarning ?? defaultSink;
   const ctx = createConfigContext();
 
-  config.permissions.read.overrides = filterValidOverrides(config.permissions.read.overrides, "read", ctx);
-  config.permissions.write.overrides = filterValidOverrides(config.permissions.write.overrides, "write", ctx);
-  config.permissions.delete.overrides = filterValidOverrides(config.permissions.delete.overrides, "delete", ctx);
+  config.permissions.read.overrides = filterValidOverrides(config.permissions.read.overrides, "read", ctx, sink);
+  config.permissions.write.overrides = filterValidOverrides(config.permissions.write.overrides, "write", ctx, sink);
+  config.permissions.delete.overrides = filterValidOverrides(config.permissions.delete.overrides, "delete", ctx, sink);
 }
 
 function filterValidOverrides(
   overrides: any[],
   sectionName: string,
   ctx: PathContext,
+  sink: WarningSink,
 ): import("./config-types.js").OverrideRule[] {
   const valid: import("./config-types.js").OverrideRule[] = [];
 
   for (let i = 0; i < overrides.length; i++) {
     const o = overrides[i];
     if (!o || typeof o !== "object") {
-      console.warn(`[pi-sanity] Skipping invalid override #${i} in [permissions.${sectionName}]: not an object`);
+      sink(`[pi-sanity] Skipping invalid override #${i} in [permissions.${sectionName}]: not an object`);
       continue;
     }
     if (!Array.isArray(o.path)) {
-      console.warn(`[pi-sanity] Skipping invalid override #${i} in [permissions.${sectionName}]: missing or invalid 'path' (expected array)`);
+      sink(`[pi-sanity] Skipping invalid override #${i} in [permissions.${sectionName}]: missing or invalid 'path' (expected array)`);
       continue;
     }
     if (!["allow", "ask", "deny"].includes(o.action)) {
-      console.warn(`[pi-sanity] Skipping invalid override #${i} in [permissions.${sectionName}]: missing or invalid 'action' (got: ${o.action})`);
+      sink(`[pi-sanity] Skipping invalid override #${i} in [permissions.${sectionName}]: missing or invalid 'action' (got: ${o.action})`);
       continue;
     }
 
@@ -88,10 +96,10 @@ function filterValidOverrides(
  * Patterns are NOT preprocessed - caller must preprocess if needed,
  * or use preprocessConfigPatterns() directly.
  */
-export function loadConfigFromString(tomlContent: string): SanityConfig {
+export function loadConfigFromString(tomlContent: string, onWarning?: WarningSink): SanityConfig {
   const parsed = parse(tomlContent) as Partial<SanityConfig>;
   const config = mergeConfigs([expandAliases(parsed)]);
-  preprocessConfigPatterns(config);
+  preprocessConfigPatterns(config, onWarning);
   return config;
 }
 
@@ -108,9 +116,9 @@ function loadEmbeddedDefaultConfig(): Partial<SanityConfig> {
  * Does not load user global or project configs.
  * Useful for testing or when you want guaranteed defaults.
  */
-export function loadDefaultConfig(): SanityConfig {
+export function loadDefaultConfig(onWarning?: WarningSink): SanityConfig {
   const config = mergeConfigs([expandAliases(loadEmbeddedDefaultConfig())]);
-  preprocessConfigPatterns(config);
+  preprocessConfigPatterns(config, onWarning);
   return config;
 }
 
@@ -123,7 +131,8 @@ export function loadDefaultConfig(): SanityConfig {
  * @param projectDir - Path to project root (for project config)
  * @returns Merged SanityConfig with preprocessed patterns
  */
-export function loadConfig(projectDir?: string): SanityConfig {
+export function loadConfig(projectDir?: string, onWarning?: WarningSink): SanityConfig {
+  const sink = onWarning ?? defaultSink;
   const configs: Partial<SanityConfig>[] = [];
 
   // 1. Built-in defaults (embedded at build time)
@@ -137,7 +146,7 @@ export function loadConfig(projectDir?: string): SanityConfig {
     "sanity.toml",
   );
   if (fs.existsSync(userConfigPath)) {
-    const userConfig = loadTomlFile(userConfigPath);
+    const userConfig = loadTomlFile(userConfigPath, sink);
     if (userConfig) {
       configs.push(expandAliases(userConfig));
     }
@@ -147,7 +156,7 @@ export function loadConfig(projectDir?: string): SanityConfig {
   if (projectDir) {
     const projectConfigPath = path.join(projectDir, ".pi", "sanity.toml");
     if (fs.existsSync(projectConfigPath)) {
-      const projectConfig = loadTomlFile(projectConfigPath);
+      const projectConfig = loadTomlFile(projectConfigPath, sink);
       if (projectConfig) {
         configs.push(expandAliases(projectConfig));
       }
@@ -158,7 +167,7 @@ export function loadConfig(projectDir?: string): SanityConfig {
   const config = mergeConfigs(configs);
   
   // Preprocess all patterns after merging
-  preprocessConfigPatterns(config);
+  preprocessConfigPatterns(config, sink);
   
   return config;
 }
@@ -167,13 +176,13 @@ export function loadConfig(projectDir?: string): SanityConfig {
  * Parse a single TOML config file.
  * Returns undefined and logs a warning on parse error instead of crashing.
  */
-function loadTomlFile(filePath: string): Partial<SanityConfig> | undefined {
+function loadTomlFile(filePath: string, sink: WarningSink): Partial<SanityConfig> | undefined {
   try {
     const content = fs.readFileSync(filePath, "utf-8");
     return parse(content) as Partial<SanityConfig>;
   } catch (err: any) {
     const message = err?.message || String(err);
-    console.warn(`[pi-sanity] Failed to load config from ${filePath}: ${message}`);
+    sink(`[pi-sanity] Failed to load config from ${filePath}: ${message}`);
     return undefined;
   }
 }

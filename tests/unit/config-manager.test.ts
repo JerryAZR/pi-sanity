@@ -167,6 +167,50 @@ describe("ConfigManager", () => {
     });
   });
 
+  describe("drainWarnings", () => {
+    it("should capture and drain warnings from invalid TOML", () => {
+      const configPath = path.join(tmpDir, ".pi", "sanity.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(configPath, 'this is not valid toml = { [\n', "utf-8");
+
+      const manager = new ConfigManager(tmpDir);
+      const warnings = manager.drainWarnings();
+
+      assert.strictEqual(warnings.length, 1);
+      assert.ok(warnings[0].includes("Failed to load config"));
+      assert.ok(warnings[0].includes(configPath));
+    });
+
+    it("should capture warnings from malformed overrides", () => {
+      const configPath = path.join(tmpDir, ".pi", "sanity.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(
+        configPath,
+        '[permissions.read]\ndefault = "allow"\n\n[[permissions.read.overrides]]\naction = "deny"\nreason = "Missing path"\n',
+        "utf-8",
+      );
+
+      const manager = new ConfigManager(tmpDir);
+      const warnings = manager.drainWarnings();
+
+      assert.strictEqual(warnings.length, 1);
+      assert.ok(warnings[0].includes("Skipping invalid override"));
+    });
+
+    it("should clear warnings after draining", () => {
+      const configPath = path.join(tmpDir, ".pi", "sanity.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(configPath, 'this is not valid toml = { [\n', "utf-8");
+
+      const manager = new ConfigManager(tmpDir);
+      const w1 = manager.drainWarnings();
+      const w2 = manager.drainWarnings();
+
+      assert.strictEqual(w1.length, 1);
+      assert.strictEqual(w2.length, 0);
+    });
+  });
+
   describe("forceReload", () => {
     it("should reload even when file has not changed", () => {
       const configPath = path.join(tmpDir, ".pi", "sanity.toml");

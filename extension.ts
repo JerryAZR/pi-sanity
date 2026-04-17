@@ -20,9 +20,25 @@ export default function (pi: ExtensionAPI) {
   // Load configuration with lazy reload on file changes
   const configManager = new ConfigManager(process.cwd());
 
+  pi.on("session_start", async (_event, ctx) => {
+    // Surface any initial config load warnings
+    for (const warning of configManager.drainWarnings()) {
+      if (ctx.hasUI) {
+        ctx.ui.notify(warning, "warning");
+      }
+    }
+  });
+
   pi.on("tool_call", async (event, ctx) => {
     // Get latest config (reloads if files changed)
     const config = configManager.get();
+
+    // Surface any config reload warnings
+    for (const warning of configManager.drainWarnings()) {
+      if (ctx.hasUI) {
+        ctx.ui.notify(warning, "warning");
+      }
+    }
 
     // Only handle built-in tools we care about
     if (!["read", "write", "edit", "bash"].includes(event.toolName)) {

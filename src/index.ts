@@ -7,6 +7,7 @@
 
 // Config loading
 export { loadConfig, loadConfigFromString, loadDefaultConfig } from "./config-loader.js";
+export type { WarningSink } from "./config-loader.js";
 export { ConfigManager } from "./config-manager.js";
 export { createEmptyConfig } from "./config-types.js";
 export type { SanityConfig, Action, CommandConfig } from "./config-types.js";
