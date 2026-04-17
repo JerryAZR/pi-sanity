@@ -22,21 +22,22 @@ export default function (pi: ExtensionAPI) {
   const configManager = new ConfigManager(process.cwd());
 
   /**
-   * Reload config if files changed, drain any warnings, and notify.
-   * Clears the warning widget regardless (it's recreated if new warnings appear).
+   * Reload config if files changed, drain warnings, and display them via
+   * a persistent widget (the only UI primitive that works reliably across
+   * session_start, tool_result, and tool_call).
    * Returns the current config for use by tool_call.
    */
   function refreshConfig(
-    ctx: { hasUI: boolean; ui: { notify: (msg: string, type: "warning") => void; setWidget: (key: string, content: string[] | undefined, opts?: any) => void } }
+    ctx: { hasUI: boolean; ui: { setWidget: (key: string, content: string[] | undefined, opts?: any) => void } }
   ): SanityConfig {
     const config = configManager.get();
-    for (const warning of configManager.drainWarnings()) {
-      if (ctx.hasUI) {
-        ctx.ui.notify(warning, "warning");
-      }
-    }
+    const warnings = configManager.drainWarnings();
     if (ctx.hasUI) {
-      ctx.ui.setWidget("pi-sanity-warn", undefined);
+      if (warnings.length > 0) {
+        ctx.ui.setWidget("pi-sanity-warn", warnings, { placement: "aboveEditor" });
+      } else {
+        ctx.ui.setWidget("pi-sanity-warn", undefined);
+      }
     }
     return config;
   }
