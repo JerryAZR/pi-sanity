@@ -14,9 +14,6 @@ import {
 } from "./src/index.js";
 import type { SanityConfig } from "./src/config-types.js";
 
-// Default ask timeout in seconds (placeholder for future use)
-const DEFAULT_ASK_TIMEOUT = 30;
-
 export default function (pi: ExtensionAPI) {
   // Load configuration with lazy reload on file changes
   const configManager = new ConfigManager(process.cwd());
@@ -141,10 +138,12 @@ export default function (pi: ExtensionAPI) {
           break;
       }
 
+      const timeoutMs = (config.ask_timeout ?? 30) * 1000;
+
       const confirmed = await ctx.ui.confirm(
         "Pi-Sanity",
         `${reason}\n\n${actionDetails}\n\nAllow this operation?`,
-        { timeout: DEFAULT_ASK_TIMEOUT * 1000 }
+        { timeout: timeoutMs }
       );
 
       if (!confirmed) {

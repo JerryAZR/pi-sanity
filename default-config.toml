@@ -2,6 +2,9 @@
 # This file is shipped with the extension and serves as the base configuration.
 # User configs (global and project-level) override these defaults.
 
+# Ask timeout in seconds (default: 30)
+ask_timeout = 30
+
 # Global default for unknown commands - low friction approach
 [commands._]
 default_action = "allow"
