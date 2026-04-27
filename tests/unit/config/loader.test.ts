@@ -78,6 +78,40 @@ describe("mergeConfigs", () => {
     assert.strictEqual(cp.pre_checks?.length, 2); // Both pre-checks
   });
 
+  it("should merge ask_timeout (later overrides earlier)", () => {
+    const base = createEmptyConfig();
+    base.ask_timeout = 30;
+
+    const override: Partial<SanityConfig> = {
+      permissions: {
+        read: { default: "allow", overrides: [] },
+        write: { default: "allow", overrides: [] },
+        delete: { default: "allow", overrides: [] },
+      },
+      ask_timeout: 60,
+    };
+
+    const merged = mergeConfigs([base, override]);
+    assert.strictEqual(merged.ask_timeout, 60);
+  });
+
+  it("should not override ask_timeout when later config omits it", () => {
+    const base = createEmptyConfig();
+    base.ask_timeout = 45;
+
+    const override: Partial<SanityConfig> = {
+      permissions: {
+        read: { default: "deny", overrides: [] },
+        write: { default: "allow", overrides: [] },
+        delete: { default: "allow", overrides: [] },
+      },
+      // ask_timeout intentionally omitted
+    };
+
+    const merged = mergeConfigs([base, override]);
+    assert.strictEqual(merged.ask_timeout, 45);
+  });
+
   it("should add new commands from later configs", () => {
     const base = createEmptyConfig();
     const override: Partial<SanityConfig> = {

@@ -254,22 +254,24 @@ describe("extension tool interception", () => {
     it("should confirm when asking for user approval", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
-      
+
       let confirmCalled = false;
       const ctx = createMockContext(true);
       ctx.ui.confirm = (title: string, msg: string, options?: any) => {
         confirmCalled = true;
         assert.ok(title.includes("Pi-Sanity"), "Title should be Pi-Sanity");
+        assert.ok(options && typeof options.timeout === "number", "Should pass timeout option");
+        assert.ok(options.timeout > 0, "Timeout should be positive");
         return Promise.resolve(false);
       };
-      
+
       const event = {
         toolName: "read",
         input: { path: "~/.aws/credentials" },
       };
-      
+
       const result = await pi.__simulateToolCall(event, ctx);
-      
+
       assert.ok(confirmCalled, "Should call ui.confirm for ask actions");
       assert.ok(result && result.block === true, "Should block when user cancels");
       assert.ok(result.reason.includes("blocked by user"), "Reason should indicate user blocked it");

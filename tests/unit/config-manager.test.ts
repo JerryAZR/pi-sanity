@@ -39,6 +39,35 @@ describe("ConfigManager", () => {
       assert.strictEqual(config.permissions.read.default, "deny");
     });
 
+    it("should load ask_timeout from project config", () => {
+      const configPath = path.join(tmpDir, ".pi", "sanity.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(
+        configPath,
+        'ask_timeout = 60\n\n[permissions.read]\ndefault = "deny"\n',
+        "utf-8",
+      );
+
+      const manager = new ConfigManager(tmpDir);
+      const config = manager.get();
+      assert.strictEqual(config.ask_timeout, 60);
+    });
+
+    it("should use default ask_timeout when not specified in project config", () => {
+      const configPath = path.join(tmpDir, ".pi", "sanity.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(
+        configPath,
+        '[permissions.read]\ndefault = "deny"\n',
+        "utf-8",
+      );
+
+      const manager = new ConfigManager(tmpDir);
+      const config = manager.get();
+      // Default from embedded config is 30
+      assert.strictEqual(config.ask_timeout, 30);
+    });
+
     it("should fall back to default config when project config is invalid TOML", () => {
       const configPath = path.join(tmpDir, ".pi", "sanity.toml");
       fs.mkdirSync(path.dirname(configPath), { recursive: true });
