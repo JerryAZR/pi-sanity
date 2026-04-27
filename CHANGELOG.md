@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Reorganized test suite into `tests/unit` and `tests/integration`. Old tests moved to `tests-deprecated/` for reference; main CI suite runs only the new structure.
+- CI workflow now shows failed tests prominently in GitHub step summary.
+
+### Fixed
+- `ask_timeout` from config (`sanity.toml`) was ignored; extension always used hard-coded 30s. Now reads `config.ask_timeout` with fallback to 30. Added `ask_timeout = 30` to built-in default config.
+- Windows drive letter stripping test was running (and failing) on Linux runners. Now skipped on non-Windows platforms.
+- `run-tests.js` updated to recursively find tests in subdirectories.
+
+### Added
+- Tests for `ask_timeout` config loading and merging:
+  - `mergeConfigs` preserves or overrides `ask_timeout` correctly
+  - `ConfigManager` loads `ask_timeout` from project config
+  - Extension passes `timeout` option to `ui.confirm`
+- `tests-deprecated/README.md` documenting old test files and their replacements.
+
 ## [0.2.2] - 2025-04-18
 
 ### Changed
