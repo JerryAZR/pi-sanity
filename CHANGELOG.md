@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Reorganized test suite into `tests/unit` and `tests/integration`. Old tests moved to `tests-deprecated/` for reference; main CI suite runs only the new structure.
+- Reorganized test suite into `tests/unit` and `tests/integration`. Main CI suite runs only the new structure.
 - CI workflow now shows failed tests prominently in GitHub step summary.
+- Removed `tests-deprecated/` directory and related npm scripts (`test:deprecated`, `test:all`). Old tests served their purpose during the refactor and are no longer needed.
 
 ### Fixed
 - `ask_timeout` from config (`sanity.toml`) was ignored; extension always used hard-coded 30s. Now reads `config.ask_timeout` with fallback to 30. Added `ask_timeout = 30` to built-in default config.

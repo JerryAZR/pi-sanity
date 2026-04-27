@@ -43,8 +43,6 @@
     "test:ci": "npm run build && node --test dist/tests/unit/**/*.test.js dist/tests/integration/**/*.test.js",
     "test:unit": "npm run build && node --test dist/tests/unit/**/*.test.js",
     "test:integration": "npm run build && node --test dist/tests/integration/**/*.test.js",
-    "test:deprecated": "npm run build && node --test dist/tests-deprecated/**/*.test.js",
-    "test:all": "npm run build && node --test dist/tests/**/*.test.js dist/tests-deprecated/**/*.test.js",
     "check": "tsc --noEmit"
   },
   "dependencies": {
