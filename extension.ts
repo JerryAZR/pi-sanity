@@ -16,7 +16,7 @@ import type { SanityConfig } from "./src/config-types.js";
 
 // Choice labels shown in the select dialog — must match exactly
 const CHOICE_ALLOW = "Allow";
-const CHOICE_BLOCK = "Block — report failure to user";
+const CHOICE_BLOCK = "Block — agent continues its turn";
 const CHOICE_BLOCK_STOP = "Block & stop — I'll explain in chat";
 
 export default function (pi: ExtensionAPI) {

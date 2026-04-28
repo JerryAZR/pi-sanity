@@ -262,7 +262,7 @@ describe("extension tool interception", () => {
         selectCalled = true;
         assert.ok(title.includes("Pi-Sanity"), "Title should be Pi-Sanity");
         assert.ok(options.some(o => o.includes("Allow")), "Options should include Allow");
-        assert.ok(options.some(o => o.includes("Block — report failure to user")), "Options should include Block");
+        assert.ok(options.some(o => o.includes("Block — agent continues its turn")), "Options should include Block");
         assert.ok(options.some(o => o.includes("Block & stop — I'll explain in chat")), "Options should include Block & stop");
         assert.ok(opts && typeof opts.timeout === "number", "Should pass timeout option");
         assert.ok(opts.timeout > 0, "Timeout should be positive");
@@ -285,7 +285,7 @@ describe("extension tool interception", () => {
       extension(pi as ExtensionAPI);
 
       const ctx = createMockContext(true);
-      ctx.ui.select = () => Promise.resolve("Block — report failure to user");
+      ctx.ui.select = () => Promise.resolve("Block — agent continues its turn");
 
       const event = {
         toolName: "read",
