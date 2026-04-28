@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Windows drive letter stripping test was running (and failing) on Linux runners. Now skipped on non-Windows platforms.
 - `run-tests.js` updated to recursively find tests in subdirectories.
 
-## [0.2.2] - 2025-04-18
+## [0.2.2] - 2026-04-18
 
 ### Changed
 - Config warnings (invalid TOML, malformed overrides) now display via `ctx.ui.setWidget()` with `theme.fg("warning")` styling and horizontal-rule separators, instead of `notify()`. This makes them persistent and visible across all hooks (`session_start`, `tool_result`, `tool_call`).
@@ -40,12 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Removed stale compiled test files (`dist/tests/*.test.js`) from before the test-directory restructure that were causing phantom test failures in `npm run test:all`.
 
-## [0.2.1] - 2025-04-17
+## [0.2.1] - 2026-04-17
 
 ### Changed
 - Config warnings (invalid TOML, malformed overrides) are now piped to `ctx.ui.notify()` instead of `console.warn`. Core library accepts an optional `WarningSink` callback; `ConfigManager.drainWarnings()` lets the integration layer surface issues via pi UI at the right moment.
 
-## [0.2.0] - 2025-04-17
+## [0.2.0] - 2026-04-17
 
 ### Changed
 - **Read rules are now targeted instead of blanket.** Previously all hidden files in `~` (`{{HOME}}/.*`) triggered "ask". Now only known credential locations trigger confirmation: `~/.ssh/*`, `~/.aws/**`, `~/.config/gcloud/**`, `~/.azure/**`, `~/.netrc`, `~/.pgpass`, `~/.my.cnf`, `~/.npmrc`, `~/.pypirc`, `~/.git-credentials`, `~/.docker/config.json`, `~/.kube/config`. Public SSH keys (`~/.ssh/*.pub`) remain explicitly allowed. This means dev caches like `~/.cargo`, `~/.npm`, `~/.config` no longer trigger false positives.
@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed redundant `**/node_modules/**` allow rule; node_modules paths were never in the blacklist to begin with.
 - Removed pointless unit tests that were testing Node.js's built-in `path.matchesGlob` instead of our code.
 
-## [0.1.2] - 2025-04-12
+## [0.1.2] - 2026-04-12
 
 ### Fixed
 - Fixed project-level config (`.pi/sanity.toml`) not being loaded. `loadConfig()` was called without `projectDir`, causing the project config lookup to be skipped entirely.
@@ -73,12 +73,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added architecture notes explaining compiled entry point vs pi-style source loading
 - Clarified hot-reload behavior for user and project configs in README
 
-## [0.1.1] - 2025-04-12
+## [0.1.1] - 2026-04-12
 
 ### Fixed
 - Allow special device files (`/dev/null`, `/dev/stdout`, `/dev/stderr`) in write operations to prevent false positives on common redirection patterns like `2>/dev/null`
 
-## [0.1.0] - 2025-04-12
+## [0.1.0] - 2026-04-12
 
 ### Added
 - Initial release of Pi-Sanity
