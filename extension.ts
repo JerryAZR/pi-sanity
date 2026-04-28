@@ -16,7 +16,7 @@ import type { SanityConfig } from "./src/config-types.js";
 
 // Choice labels shown in the select dialog — must match exactly
 const CHOICE_ALLOW = "Allow";
-const CHOICE_BLOCK = "Block — agent may try alternative";
+const CHOICE_BLOCK = "Block — report failure to user";
 const CHOICE_BLOCK_STOP = "Block & stop — I'll explain in chat";
 
 export default function (pi: ExtensionAPI) {
@@ -159,20 +159,21 @@ export default function (pi: ExtensionAPI) {
       }
 
       if (choice === CHOICE_BLOCK_STOP) {
-        // User wants to stop and explain. Return a clear instruction so the
-        // agent knows not to continue with alternatives.
+        // User wants to stop and explain. Tell the agent to halt and wait
+        // for the user's next message.
         return {
           block: true,
           reason: `${reason} (blocked by user — stop and wait for user instructions)`,
         };
       }
 
-      // "Block" (without stopping): the agent turn continues and sees the
-      // rejection reason. Prompt it to try an alternative approach.
-      // Also applies when the dialog is dismissed or times out.
+      // "Block" (without stopping): the agent turn continues. The agent
+      // receives a tool failure and should report it to the user rather than
+      // silently trying workarounds. Also applies when dialog is dismissed
+      // or times out.
       return {
         block: true,
-        reason: `${reason} (blocked by user — consider alternatives)`,
+        reason: `${reason} (blocked by user)`,
       };
     }
 
