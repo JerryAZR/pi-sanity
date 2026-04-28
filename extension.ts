@@ -14,6 +14,11 @@ import {
 } from "./src/index.js";
 import type { SanityConfig } from "./src/config-types.js";
 
+// Choice labels shown in the select dialog — must match exactly
+const CHOICE_ALLOW = "Allow";
+const CHOICE_BLOCK = "Block — agent may try alternative";
+const CHOICE_BLOCK_STOP = "Block & stop — I'll explain in chat";
+
 export default function (pi: ExtensionAPI) {
   // Load configuration with lazy reload on file changes
   const configManager = new ConfigManager(process.cwd());
@@ -140,18 +145,30 @@ export default function (pi: ExtensionAPI) {
 
       const timeoutMs = (config.ask_timeout ?? 30) * 1000;
 
-      const confirmed = await ctx.ui.confirm(
-        "Pi-Sanity",
-        `${reason}\n\n${actionDetails}\n\nAllow this operation?`,
+      const title = `Pi-Sanity\n\n${reason}\n${actionDetails}`;
+
+      const choice = await ctx.ui.select(
+        title,
+        [CHOICE_ALLOW, CHOICE_BLOCK, CHOICE_BLOCK_STOP],
         { timeout: timeoutMs }
       );
 
-      if (!confirmed) {
-        return { block: true, reason: `${reason} (blocked by user)` };
+      if (choice === CHOICE_ALLOW) {
+        // User confirmed - allow the operation
+        return undefined;
       }
 
-      // User confirmed - allow the operation
-      return undefined;
+      if (choice === CHOICE_BLOCK_STOP) {
+        // User wants to explain or redirect the agent.
+        // Abort the agent turn so the user can type in the main chat input.
+        // Deferred via setTimeout so the block result is processed first.
+        setTimeout(() => ctx.abort(), 0);
+      }
+
+      // "Block" (without stopping): the agent turn continues and sees the
+      // rejection reason. It may give up or try an alternative approach.
+      // Also applies when the dialog is dismissed or times out.
+      return { block: true, reason: `${reason} (blocked by user)` };
     }
 
     // "allow" - let the tool execute normally

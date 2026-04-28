@@ -7,8 +7,8 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 function createMockUI() {
   return {
     notify: (message: string, type: string) => {},
-    confirm: (title: string, message: string, options?: any) => {
-      return Promise.resolve(false);
+    select: (title: string, options: string[], opts?: any) => {
+      return Promise.resolve("Block");
     },
     setStatus: (key: string, text: string | undefined) => {},
     setWidget: (key: string, content: string[] | ((tui: any, theme: any) => any) | undefined, options?: any) => {},
@@ -49,6 +49,7 @@ function createMockContext(hasUI = true): any {
   return {
     hasUI,
     ui: hasUI ? createMockUI() : undefined,
+    abort: () => {},
   };
 }
 
@@ -251,18 +252,21 @@ describe("extension tool interception", () => {
   });
 
   describe("UI interaction", () => {
-    it("should confirm when asking for user approval", async () => {
+    it("should select 'Allow' to permit operation", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
 
-      let confirmCalled = false;
+      let selectCalled = false;
       const ctx = createMockContext(true);
-      ctx.ui.confirm = (title: string, msg: string, options?: any) => {
-        confirmCalled = true;
+      ctx.ui.select = (title: string, options: string[], opts?: any) => {
+        selectCalled = true;
         assert.ok(title.includes("Pi-Sanity"), "Title should be Pi-Sanity");
-        assert.ok(options && typeof options.timeout === "number", "Should pass timeout option");
-        assert.ok(options.timeout > 0, "Timeout should be positive");
-        return Promise.resolve(false);
+        assert.ok(options.some(o => o.includes("Allow")), "Options should include Allow");
+        assert.ok(options.some(o => o.includes("Block — agent may try alternative")), "Options should include Block");
+        assert.ok(options.some(o => o.includes("Block & stop — I'll explain in chat")), "Options should include Block & stop");
+        assert.ok(opts && typeof opts.timeout === "number", "Should pass timeout option");
+        assert.ok(opts.timeout > 0, "Timeout should be positive");
+        return Promise.resolve("Allow");
       };
 
       const event = {
@@ -272,24 +276,83 @@ describe("extension tool interception", () => {
 
       const result = await pi.__simulateToolCall(event, ctx);
 
-      assert.ok(confirmCalled, "Should call ui.confirm for ask actions");
-      assert.ok(result && result.block === true, "Should block when user cancels");
+      assert.ok(selectCalled, "Should call ui.select for ask actions");
+      assert.strictEqual(result, undefined, "Should return undefined to allow");
+    });
+
+    it("should select 'Block' to deny operation", async () => {
+      const { pi } = createMockPi();
+      extension(pi as ExtensionAPI);
+
+      const ctx = createMockContext(true);
+      ctx.ui.select = () => Promise.resolve("Block — agent may try alternative");
+
+      const event = {
+        toolName: "read",
+        input: { path: "~/.aws/credentials" },
+      };
+
+      const result = await pi.__simulateToolCall(event, ctx);
+
+      assert.ok(result && result.block === true, "Should block when user selects Block");
+      assert.ok(result.reason.includes("blocked by user"), "Reason should indicate user blocked it");
+    });
+
+    it("should select 'Block & stop turn' to abort agent", async () => {
+      const { pi } = createMockPi();
+      extension(pi as ExtensionAPI);
+
+      let abortCalled = false;
+      const ctx = createMockContext(true);
+      ctx.abort = () => { abortCalled = true; };
+      ctx.ui.select = () => Promise.resolve("Block & stop — I'll explain in chat");
+
+      const event = {
+        toolName: "read",
+        input: { path: "~/.aws/credentials" },
+      };
+
+      const result = await pi.__simulateToolCall(event, ctx);
+
+      assert.ok(result && result.block === true, "Should block when user selects Block & stop turn");
+      assert.ok(result.reason.includes("blocked by user"), "Reason should indicate user blocked it");
+
+      // Abort is deferred via setTimeout(0), so wait a tick
+      await new Promise(resolve => setTimeout(resolve, 10));
+      assert.ok(abortCalled, "Should call ctx.abort to stop the agent turn");
+    });
+
+    it("should block on dismiss (no selection)", async () => {
+      const { pi } = createMockPi();
+      extension(pi as ExtensionAPI);
+
+      const ctx = createMockContext(true);
+      ctx.ui.select = () => Promise.resolve(undefined);
+
+      const event = {
+        toolName: "read",
+        input: { path: "~/.aws/credentials" },
+      };
+
+      const result = await pi.__simulateToolCall(event, ctx);
+
+      assert.ok(result && result.block === true, "Should block when dialog is dismissed");
       assert.ok(result.reason.includes("blocked by user"), "Reason should indicate user blocked it");
     });
 
     it("should not show UI when UI is not available", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
-      
+
       const ctx = createMockContext(false);
-      
+
       const event = {
         toolName: "write",
         input: { path: "~/.aws/credentials" },
       };
-      
+
       const result = await pi.__simulateToolCall(event, ctx);
-      
+
       assert.ok(result && result.block === true, "Should still block even without UI");
     });
   });

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reorganized test suite into `tests/unit` and `tests/integration`. Main CI suite runs only the new structure.
 - CI workflow now shows failed tests prominently in GitHub step summary.
 - Removed `tests-deprecated/` directory and related npm scripts (`test:deprecated`, `test:all`). Old tests served their purpose during the refactor and are no longer needed.
+- **Replaced binary confirmation dialog with 3-way choice.** Instead of `ui.confirm()` (Allow / Cancel), the extension now uses `ui.select()` with options:
+  - **"Allow"** — proceed with the operation
+  - **"Block"** — block the operation but keep the agent turn running. The agent receives the rejection reason and decides for itself what to do next (e.g., give up, try a different file, or ask the user)
+  - **"Block & stop turn"** — block the operation and immediately abort the agent stream with `ctx.abort()`. The user is returned to the chat input where they can type an explanation or suggest an alternative approach. This is useful when the agent is on the wrong track and needs human guidance
 
 ### Fixed
 - `ask_timeout` from config (`sanity.toml`) was ignored; extension always used hard-coded 30s. Now reads `config.ask_timeout` with fallback to 30. Added `ask_timeout = 30` to built-in default config.
@@ -21,7 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests for `ask_timeout` config loading and merging:
   - `mergeConfigs` preserves or overrides `ask_timeout` correctly
   - `ConfigManager` loads `ask_timeout` from project config
-  - Extension passes `timeout` option to `ui.confirm`
+  - Extension passes `timeout` option to `ui.select`
+- Tests for the new 3-way select dialog:
+  - "Allow" returns `undefined` to permit the tool
+  - "Block" returns `{ block: true }`
+  - "Block & stop turn" returns `{ block: true }` and calls `ctx.abort()`
+  - Dismissed dialog (undefined) treated as "Block"
 - `tests-deprecated/README.md` documenting old test files and their replacements.
 
 ## [0.2.2] - 2025-04-18
