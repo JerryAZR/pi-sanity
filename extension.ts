@@ -159,16 +159,21 @@ export default function (pi: ExtensionAPI) {
       }
 
       if (choice === CHOICE_BLOCK_STOP) {
-        // User wants to explain or redirect the agent.
-        // Abort the agent turn so the user can type in the main chat input.
-        // Deferred via setTimeout so the block result is processed first.
-        setTimeout(() => ctx.abort(), 0);
+        // User wants to stop and explain. Return a clear instruction so the
+        // agent knows not to continue with alternatives.
+        return {
+          block: true,
+          reason: `${reason} (blocked by user — stop and wait for user instructions)`,
+        };
       }
 
       // "Block" (without stopping): the agent turn continues and sees the
-      // rejection reason. It may give up or try an alternative approach.
+      // rejection reason. Prompt it to try an alternative approach.
       // Also applies when the dialog is dismissed or times out.
-      return { block: true, reason: `${reason} (blocked by user)` };
+      return {
+        block: true,
+        reason: `${reason} (blocked by user — consider alternatives)`,
+      };
     }
 
     // "allow" - let the tool execute normally

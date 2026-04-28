@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed `tests-deprecated/` directory and related npm scripts (`test:deprecated`, `test:all`). Old tests served their purpose during the refactor and are no longer needed.
 - **Replaced binary confirmation dialog with 3-way choice.** Instead of `ui.confirm()` (Allow / Cancel), the extension now uses `ui.select()` with options:
   - **"Allow"** — proceed with the operation
-  - **"Block"** — block the operation but keep the agent turn running. The agent receives the rejection reason and decides for itself what to do next (e.g., give up, try a different file, or ask the user)
-  - **"Block & stop turn"** — block the operation and immediately abort the agent stream with `ctx.abort()`. The user is returned to the chat input where they can type an explanation or suggest an alternative approach. This is useful when the agent is on the wrong track and needs human guidance
+  - **"Block — agent may try alternative"** — block the operation but keep the agent turn running. The agent receives the rejection reason with a prompt to consider alternatives, and decides what to do next
+  - **"Block & stop — I'll explain in chat"** — block the operation and return a reason that instructs the agent to stop and wait for user instructions. No `ctx.abort()` is used; the agent sees the instruction and stops gracefully. This avoids the error-looking "Operation aborted" message that `ctx.abort()` produces
 
 ### Fixed
 - `ask_timeout` from config (`sanity.toml`) was ignored; extension always used hard-coded 30s. Now reads `config.ask_timeout` with fallback to 30. Added `ask_timeout = 30` to built-in default config.

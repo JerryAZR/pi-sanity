@@ -280,7 +280,7 @@ describe("extension tool interception", () => {
       assert.strictEqual(result, undefined, "Should return undefined to allow");
     });
 
-    it("should select 'Block' to deny operation", async () => {
+    it("should select 'Block' to deny operation with alternative hint", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
 
@@ -295,16 +295,14 @@ describe("extension tool interception", () => {
       const result = await pi.__simulateToolCall(event, ctx);
 
       assert.ok(result && result.block === true, "Should block when user selects Block");
-      assert.ok(result.reason.includes("blocked by user"), "Reason should indicate user blocked it");
+      assert.ok(result.reason.includes("consider alternatives"), "Reason should prompt agent to consider alternatives");
     });
 
-    it("should select 'Block & stop turn' to abort agent", async () => {
+    it("should select 'Block & stop' to tell agent to wait for instructions", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
 
-      let abortCalled = false;
       const ctx = createMockContext(true);
-      ctx.abort = () => { abortCalled = true; };
       ctx.ui.select = () => Promise.resolve("Block & stop — I'll explain in chat");
 
       const event = {
@@ -314,15 +312,11 @@ describe("extension tool interception", () => {
 
       const result = await pi.__simulateToolCall(event, ctx);
 
-      assert.ok(result && result.block === true, "Should block when user selects Block & stop turn");
-      assert.ok(result.reason.includes("blocked by user"), "Reason should indicate user blocked it");
-
-      // Abort is deferred via setTimeout(0), so wait a tick
-      await new Promise(resolve => setTimeout(resolve, 10));
-      assert.ok(abortCalled, "Should call ctx.abort to stop the agent turn");
+      assert.ok(result && result.block === true, "Should block when user selects Block & stop");
+      assert.ok(result.reason.includes("stop and wait for user instructions"), "Reason should tell agent to wait for instructions");
     });
 
-    it("should block on dismiss (no selection)", async () => {
+    it("should block on dismiss (no selection) with alternative hint", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
 
@@ -337,7 +331,7 @@ describe("extension tool interception", () => {
       const result = await pi.__simulateToolCall(event, ctx);
 
       assert.ok(result && result.block === true, "Should block when dialog is dismissed");
-      assert.ok(result.reason.includes("blocked by user"), "Reason should indicate user blocked it");
+      assert.ok(result.reason.includes("consider alternatives"), "Reason should prompt agent to consider alternatives");
     });
 
     it("should not show UI when UI is not available", async () => {
