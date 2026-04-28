@@ -7,31 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-28
+
+### Added
+- **3-way confirmation dialog for "ask" actions.** Instead of a binary `ui.confirm()` (Allow / Cancel), the extension now uses `ui.select()` with three options:
+  - **"Allow"** — proceed with the operation
+  - **"Block — agent continues its turn"** — block the operation but keep the agent turn running. The agent receives the rejection reason and decides what to do next
+  - **"Block & stop — I'll explain in chat"** — block the operation and return a reason that instructs the agent to stop and wait for user instructions. No `ctx.abort()` is used; the agent sees the instruction and stops gracefully. This avoids the error-looking "Operation aborted" message that `ctx.abort()` produces
+- `ask_timeout` config support with tests:
+  - `mergeConfigs` preserves or overrides `ask_timeout` correctly
+  - `ConfigManager` loads `ask_timeout` from project config
+  - Extension passes `timeout` option to `ui.select`
+- Tests for the 3-way select dialog covering all choices plus dismissed dialog behavior
+
 ### Changed
 - Reorganized test suite into `tests/unit` and `tests/integration`. Main CI suite runs only the new structure.
 - CI workflow now shows failed tests prominently in GitHub step summary.
 - Removed `tests-deprecated/` directory and related npm scripts (`test:deprecated`, `test:all`). Old tests served their purpose during the refactor and are no longer needed.
-- **Replaced binary confirmation dialog with 3-way choice.** Instead of `ui.confirm()` (Allow / Cancel), the extension now uses `ui.select()` with options:
-  - **"Allow"** — proceed with the operation
-  - **"Block — agent may try alternative"** — block the operation but keep the agent turn running. The agent receives the rejection reason with a prompt to consider alternatives, and decides what to do next
-  - **"Block & stop — I'll explain in chat"** — block the operation and return a reason that instructs the agent to stop and wait for user instructions. No `ctx.abort()` is used; the agent sees the instruction and stops gracefully. This avoids the error-looking "Operation aborted" message that `ctx.abort()` produces
 
 ### Fixed
 - `ask_timeout` from config (`sanity.toml`) was ignored; extension always used hard-coded 30s. Now reads `config.ask_timeout` with fallback to 30. Added `ask_timeout = 30` to built-in default config.
 - Windows drive letter stripping test was running (and failing) on Linux runners. Now skipped on non-Windows platforms.
 - `run-tests.js` updated to recursively find tests in subdirectories.
-
-### Added
-- Tests for `ask_timeout` config loading and merging:
-  - `mergeConfigs` preserves or overrides `ask_timeout` correctly
-  - `ConfigManager` loads `ask_timeout` from project config
-  - Extension passes `timeout` option to `ui.select`
-- Tests for the new 3-way select dialog:
-  - "Allow" returns `undefined` to permit the tool
-  - "Block" returns `{ block: true }`
-  - "Block & stop turn" returns `{ block: true }` and calls `ctx.abort()`
-  - Dismissed dialog (undefined) treated as "Block"
-- `tests-deprecated/README.md` documenting old test files and their replacements.
 
 ## [0.2.2] - 2025-04-18
 
@@ -93,3 +90,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Environment pre-checks for conditional rules
 - 350+ test cases covering core functionality
 - Comprehensive documentation (README, CONFIG.md, LIMITATIONS.md)
+
+[Unreleased]: https://github.com/JerryAZR/pi-sanity/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.2...v0.3.0
+[0.2.2]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/JerryAZR/pi-sanity/compare/v0.1.2...v0.2.0
+[0.1.2]: https://github.com/JerryAZR/pi-sanity/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/JerryAZR/pi-sanity/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/JerryAZR/pi-sanity/releases/tag/v0.1.0
