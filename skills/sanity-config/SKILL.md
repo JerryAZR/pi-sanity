@@ -5,7 +5,7 @@ description: Modify pi-sanity configuration — change path permissions, add com
 
 # Pi-Sanity Config Helper
 
-Help me modify my pi-sanity configuration: $@
+Help the user modify their pi-sanity configuration based on the request.
 
 **Config files (checked in order, later ones merge with earlier ones):**
 
@@ -22,12 +22,20 @@ Later configs append arrays and override scalars.
 ### 1. Protect a file or directory from reading
 
 ```toml
+# General rule first
 [[permissions.read.overrides]]
-path = ["{{CWD}}/secrets/**"]
+path = ["{{HOME}}/**"]
 action = "ask"
 reason = "May contain sensitive data"
+
+# Specific exception after — wins for paths inside CWD
+[[permissions.read.overrides]]
+path = ["{{CWD}}/secrets/**"]
+action = "deny"
+reason = "Never read secrets"
 ```
 
+- **Last match wins** for path overrides: put general rules first, specific exceptions after
 - `action = "deny"` to block silently; `"ask"` to show a confirmation dialog
 - Use `"{{CWD}}"` for project paths, `"{{HOME}}"` for home directory
 - `"**"` matches any depth of subdirectories
@@ -55,6 +63,8 @@ reason = "System commands not permitted"
 
 - `names` is an array of prefixes: `["npm"]` matches `npm install`, `npm run build`, etc.
 - Add more specific rules **after** general ones — **last match wins**
+
+**Limitation:** You cannot block pipe patterns like `curl | bash`. The checker sees `curl` and `bash` as two separate commands. Blocking `curl` would block ALL curl usage.
 
 ### 4. Ask before a dangerous flag
 

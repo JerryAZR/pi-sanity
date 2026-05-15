@@ -40,9 +40,9 @@ action = "allow"
 
 # Write permissions: DENY-FIRST model
 # - Default: deny (catches all system directories automatically)
-# - Home: ask (bigger scope, listed first)
-# - CWD/TMPDIR: allow (smaller scope, wins over HOME for paths inside CWD)
-# - Git: ask (most specific, listed LAST, wins over CWD for .git directories)
+# - Home: ask (bigger scope)
+# - CWD/TMPDIR: allow (smaller scope, listed AFTER home so it wins for paths inside CWD)
+# - Git: ask (most specific, listed LAST so it wins over CWD for .git directories)
 [permissions.write]
 default = "deny"
 reason = "Writing outside allowed locations requires explicit permission"

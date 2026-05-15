@@ -86,7 +86,7 @@ default = "deny"
 
 ### Overrides
 
-Overrides are checked **top-to-bottom**, **first match wins**.
+Overrides are checked **top-to-bottom**, **last match wins**.
 
 ```toml
 [[permissions.read.overrides]]
