@@ -31,5 +31,6 @@ coverage/
 src/generated/
 .pi/task_tree/
 
-# Scripts (keep embed-config.js)
+# Scripts (keep embed-config.js and skill scripts)
 !scripts/embed-config.js
+!skills/**/scripts/*.js
