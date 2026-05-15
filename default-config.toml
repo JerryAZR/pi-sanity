@@ -5,22 +5,9 @@
 # Ask timeout in seconds (default: 30)
 ask_timeout = 30
 
-# Global default for unknown commands - low friction approach
-[commands._]
-default_action = "allow"
-reason = "Unknown commands default to allow (low-friction)"
-
-# Common read commands - all aliases of the same base config
-[commands.reader]
-default_action = "allow"
-aliases = ["cat", "head", "tail", "less", "more", "grep", "awk", "sed", "cut", "sort", "uniq", "wc"]
-
-[commands.reader.positionals]
-default_perm = "read"
-
-# echo doesn't access files, but may have output redirects
-[commands.echo]
-default_action = "allow"
+# ============================================================================
+# Path Permissions
+# ============================================================================
 
 [permissions.read]
 default = "allow"
@@ -84,93 +71,78 @@ path = [".pi/sanity.toml", ".pi/config.toml"]
 action = "ask"
 reason = "Modifying safety configuration requires confirmation"
 
-# Delete permissions: DENY-FIRST model
-# - Default: deny (catches all system directories automatically)
-# - Home: ask (bigger scope, listed first)
-# - CWD/TMPDIR: allow (smaller scope, wins over HOME for paths inside CWD)
-# - Git: ask (most specific, listed LAST, wins over CWD for .git directories)
-[permissions.delete]
-default = "deny"
-reason = "Deletion outside allowed locations is not permitted"
+# ============================================================================
+# Command Rules
+# ============================================================================
+# Rules are checked in array order. LAST match wins.
+# General rules first, specific overrides after.
 
-[[permissions.delete.overrides]]
-path = ["{{HOME}}/**"]
-action = "ask"
-reason = "Deleting from home directory requires confirmation"
+[commands]
+default = "allow"
+reason = "Unknown commands default to allow (low-friction)"
 
-[[permissions.delete.overrides]]
-path = ["{{CWD}}/**", "{{TMPDIR}}/**"]
-action = "allow"
+# Common read commands
+[[commands.rules]]
+names = ["cat", "head", "tail", "less", "more", "grep", "awk", "sed", "cut", "sort", "uniq", "wc"]
+positionals = { default_perm = ["read"] }
 
-[[permissions.delete.overrides]]
-path = ["**/.git/**"]
-action = "ask"
-reason = "Deleting git internals can be dangerous"
+# cp: read sources, write destination
+[[commands.rules]]
+names = ["cp"]
+positionals = { default_perm = ["read"], overrides = { "-1" = ["write"] } }
+options = { "-t" = ["write"], "--target-directory" = ["write"] }
 
-[[permissions.delete.overrides]]
-path = [".pi/sanity.toml", ".pi/config.toml"]
-action = "ask"
-reason = "Deleting safety configuration requires confirmation"
+# mv: read + write on sources, write destination
+[[commands.rules]]
+names = ["mv"]
+positionals = { default_perm = ["read", "write"], overrides = { "-1" = ["write"] } }
 
-[commands.cp]
-default_action = "allow"
+# rm: write (delete) files
+[[commands.rules]]
+names = ["rm"]
+positionals = { default_perm = ["write"] }
 
-[commands.cp.positionals]
-default_perm = "read"
-overrides = { "-1" = "write" }
-
-[commands.cp.options]
-"-t" = "write"
-"--target-directory" = "write"
-
-[commands.mv]
-default_action = "allow"
-
-[commands.mv.positionals]
-default_perm = "read,delete"
-overrides = { "-1" = "write" }
-
-[commands.rm]
-default_action = "allow"
-
-[commands.rm.positionals]
-default_perm = "delete"
-
-# dd is blocked by default - rarely needed in development and can be destructive
-[commands.dd]
-default_action = "deny"
+# dd: blocked by default - rarely needed and destructive
+[[commands.rules]]
+names = ["dd"]
+action = "deny"
 reason = "dd is a low-level disk utility not typically needed in development"
 
-# Package managers - global installs are denied, use project-level installs instead
-[commands.npm]
-default_action = "allow"
-aliases = ["pnpm"]
+# npm/pnpm: deny global installs
+[[commands.rules]]
+names = ["npm", "pnpm"]
+flags = [
+  { flag = "-g", action = "deny", reason = "Use project-local installs instead of global" },
+  { flag = "--global", action = "deny", reason = "Use project-local installs instead of global" }
+]
 
-[commands.npm.flags]
-"-g" = { action = "deny", reason = "Use project-local installs instead of global" }
-"--global" = { action = "deny", reason = "Use project-local installs instead of global" }
+# yarn: deny global installs
+[[commands.rules]]
+names = ["yarn"]
+flags = [
+  { flag = "global", action = "deny", reason = "Use project-local installs instead of global" }
+]
 
-[commands.yarn]
-default_action = "allow"
+# pip/pip3: require virtual environment
+[[commands.rules]]
+names = ["pip", "pip3"]
+pre_checks = [
+  { env = "VIRTUAL_ENV", match = "", action = "deny", reason = "pip must be run inside a virtual environment" }
+]
+flags = [
+  { flag = "--user", action = "deny", reason = "--user installs outside the virtual environment" }
+]
 
-[commands.yarn.flags]
-"global" = { action = "deny", reason = "Use project-local installs instead of global" }
+# git push --force: ask before rewriting history
+[[commands.rules]]
+names = ["git push"]
+flags = [
+  { flag = "--force", action = "ask", reason = "Force push rewrites history" },
+  { flag = "-f", action = "ask", reason = "Force push rewrites history" }
+]
 
-[commands.pip]
-default_action = "allow"
-aliases = ["pip3"]
-
-[[commands.pip.pre_checks]]
-env = "VIRTUAL_ENV"
-match = ""
+# User-level package managers: deny by default
+[[commands.rules]]
+names = ["winget", "scoop", "choco", "flatpak"]
 action = "deny"
-reason = "pip must be run inside a virtual environment"
-
-[commands.pip.flags]
-"--user" = { action = "deny", reason = "--user installs outside the virtual environment" }
-
-# User-level package managers - deny by default
-[commands.winget]
-default_action = "deny"
-aliases = ["scoop", "choco", "flatpak"]
 reason = "System packages should not be manipulated during project development"

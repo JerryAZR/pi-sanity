@@ -1,409 +1,387 @@
-# Pi-Sanity Configuration Guide
+# Pi-Sanity Configuration Format
 
 ## Overview
 
-Configuration controls **what actions to take** when checks are triggered. Command definitions control **which paths to check** and **environment pre-conditions**.
+Configuration controls **what actions to take** when checks are triggered. It is organized into two domains that work together:
 
-**Configuration hierarchy (all merged):**
-1. **Built-in defaults** - shipped with extension (embedded at build time)
-2. **User global config** - `~/.pi/agent/sanity.toml`
-3. **Project config** - `.pi/sanity.toml`
+- **Path Permissions** (`permissions.*`) — defines which files/directories are safe to read or write. Deletion is a write operation (it modifies the parent directory) and is checked against `permissions.write`.
+- **Command Rules** (`commands`) — describes what each bash command does (which arguments are reads, which are writes, which flags are dangerous). Command rules **do not directly allow/deny file access**; they tell the system **which path permission to consult**.
 
-Later configs **merge** with earlier ones, appending arrays and overriding scalars. Since "last match wins" for path overrides, project rules naturally take priority while keeping base protections.
+### How the two domains interact
+
+Commands that operate on files are checked in two steps:
+
+```
+Command: cat ~/.ssh/id_rsa
+
+Step 1: Find matching command rule
+  names = ["cat"], positionals = { default_perm = ["read"] }
+  → "Check arg 0 as a READ path"
+
+Step 2: Consult path permissions
+  permissions.read: ~/.ssh/id_rsa matches {{HOME}}/.ssh/* → action = "ask"
+
+Result: ask
+```
+
+The command rule says **how to interpret** the command. The permission rule says **whether the file is safe**. Always configure both: first define what files are sensitive, then define what each command does.
+
+Commands that do **not** operate on files use the rule's `action` directly — no path permission lookup:
+
+```
+Command: shutdown -h now
+
+Step 1: Find matching command rule
+  names = ["shutdown"], action = "deny"
+
+Result: deny (no file paths involved)
+```
+
+**Unknown commands** (no matching rule) fall back to `[commands].default`. The extension ships with a built-in default config covering common commands (cat, cp, git, npm, etc.), but this is just config — not hardcoded behavior. When writing custom configs or overrides, do not assume the extension has special knowledge of any command. Every command you care about must be declared explicitly.
+
+### Config Hierarchy (all merged)
+
+1. **Built-in defaults** — shipped with the extension (embedded at build time)
+2. **User global config** — `~/.pi/agent/sanity.toml`
+3. **Project config** — `.pi/sanity.toml`
+
+Later configs merge with earlier ones:
+- Scalars: later overrides earlier
+- Arrays: appended (later items after earlier)
+- Tables: deep merged per key
 
 ---
 
-## Part 1: Path Permissions (Read/Write/Delete)
+## Top-Level Settings
 
-Define path-based rules for the three fundamental operations: `read`, `write`, and `delete`.
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `ask_timeout` | integer | No | `30` | Seconds before "ask" confirmation dialog auto-dismisses |
 
-### Schema
+```toml
+ask_timeout = 30
+```
 
-#### `[permissions.{read,write,delete}]`
+---
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `default` | string | Yes | Default action: `allow`, `ask`, or `deny` |
+## Part 1: Path Permissions
 
-#### `[[permissions.*.overrides]]`
+Each permission section has a **base policy** and an array of **override rules**. There are two sections: `permissions.read` and `permissions.write`. Deletion is checked against `permissions.write`.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string[] | Yes | List of path patterns (globs supported) |
-| `action` | string | Yes | Action to apply: `allow`, `ask`, or `deny` |
-| `reason` | string | No | Explanation for user |
-
-**Override resolution:** Evaluated top-to-bottom, **last match wins**.
+### Base Policy
 
 ```toml
 [permissions.read]
-default = "allow"
+default = "allow"     # or "ask" or "deny"
+reason = "optional"
 
-# First override: hidden files in home require confirmation
+[permissions.write]
+default = "deny"
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `default` | string | Yes | Default action: `"allow"`, `"ask"`, or `"deny"` |
+| `reason` | string | No | Explanation shown to user in ask dialog, and to agent on block. Has no effect when action is `"allow"`. Use it to guide agents away from undesired alternatives. |
+
+### Overrides
+
+Overrides are checked **top-to-bottom**, **first match wins**.
+
+```toml
 [[permissions.read.overrides]]
-path = ["{{HOME}}/.*"]
+path = ["pattern"]
 action = "ask"
-reason = "Hidden files may contain secrets"
-
-# Second override: but public keys are safe (overrides the hidden rule above)
-[[permissions.read.overrides]]
-path = ["{{HOME}}/.ssh/*.pub"]
-action = "allow"
+reason = "optional explanation"
 ```
 
-With this config:
-- `~/.bashrc` → **ask** (matches first override, shows confirmation dialog)
-- `~/.ssh/id_rsa.pub` → **allow** (second override wins)
-- `/etc/passwd` → **allow** (default, no match)
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | string[] | Yes | Glob patterns |
+| `action` | string | Yes | `"allow"`, `"ask"`, or `"deny"` |
+| `reason` | string | No | Explanation shown to user in ask dialog, and to agent on block. Has no effect when action is `"allow"`. Use it to guide agents away from undesired alternatives. |
 
-### Action Behaviors
+### Path Pattern Variables
 
-Three actions are available: `allow`, `ask`, and `deny`.
-
-| Action | Behavior |
-|--------|----------|
-| `allow` | Operation proceeds normally |
-| `ask` | Shows confirmation dialog with reason; user can approve or deny |
-| `deny` | Immediately blocks the operation |
-
-**Ask Action Details:**
-
-When `action = "ask"` is triggered:
-1. A confirmation dialog appears with:
-   - Title: "Pi-Sanity"
-   - The reason from config (e.g., "Hidden files may contain secrets")
-   - The specific action being attempted (e.g., "Read file: ~/.bashrc")
-   - 30-second timeout (auto-dismisses as "deny")
-2. User choices:
-   - **Yes** → Operation proceeds
-   - **No** or **Esc** → Blocked with reason
-   - **Timeout** → Blocked with reason
-
-**Example Confirmation Dialog:**
-```
-Pi-Sanity (30s)
-Hidden files in home directory may contain secrets
-
-Read file: ~/.bashrc
-
-Allow this operation?
-```
-
-### Path Pattern Syntax
-
-#### Variable Substitution
+Variables are expanded at config load time:
 
 | Variable | Expands To |
 |----------|-----------|
-| `{{HOME}}` | User's home directory (`os.homedir()`) |
+| `{{HOME}}` | User's home directory |
 | `{{CWD}}` | Current working directory |
-| `{{REPO}}` | Git repository root (`git rev-parse --show-toplevel`), falls back to `{{CWD}}` if not in a git repo |
-| `{{TMPDIR}}` | System temp directory (`os.tmpdir()`) |
-| `$ENV_VAR` | Value of environment variable |
+| `{{REPO}}` | Git repository root (falls back to `{{CWD}}`) |
+| `{{TMPDIR}}` | System temp directory |
+| `$ENV_VAR` | Environment variable value |
 
 ```toml
-path = [
-    "{{HOME}}/.ssh/**",     # Expands to /home/user/.ssh/**
-    "$KUBECONFIG",          # Expands to value of $KUBECONFIG
-    "{{REPO}}/build/**"     # Expands to git-repo-root/build/**
-]
+path = ["{{HOME}}/.ssh/**", "$KUBECONFIG"]
 ```
 
-Variables are expanded before glob matching.
+### Glob Syntax
 
-#### Glob Patterns
-
-Uses Node.js `path.matchesGlob()` semantics. Patterns are matched as-is after variable substitution.
-
-| Pattern | Matches |
-|---------|---------|
-| `*` | Any file/directory name |
-| `**` | Any depth of directories |
-| `?` | Single character |
-| `[abc]` | Character class |
-| `{{HOME}}/.ssh/**` | All files in `~/.ssh/` recursively |
-| `{{CWD}}/.env*` | `.env`, `.env.local`, `.env.production`, etc. |
-
-```toml
-# Match all files in .ssh directory recursively
-path = ["{{HOME}}/.ssh/**"]
-
-# Match specific file extensions
-path = ["{{HOME}}/.ssh/*.pub", "{{HOME}}/.ssh/config"]
-
-# Match hidden files in home
-path = ["{{HOME}}/.*"]
-```
-
-#### Windows Path Handling
-
-**Drive letters are stripped** from Windows paths for cross-platform consistency.
-
-| Before | After | Matches Pattern |
-|--------|-------|-----------------|
-| `C:/Users/file.txt` | `/Users/file.txt` | `/Users/**` |
-| `D:/data/file.txt` | `/data/file.txt` | `/data/**` |
-| `//server/share` | `//server/share` | `//server/**` (UNC paths preserved) |
-
-⚠️ **Warning:** This means `C:/file` and `D:/file` become the same path (`/file`). Patterns that need to distinguish drives should use `C:/` or `D:/` prefixes explicitly (though this is rarely needed).
-
-**For global patterns** that should match anywhere (regardless of drive), use `/**/` prefix:
-
-```toml
-# Matches node_modules anywhere, on any drive
-path = ["/**/node_modules/**"]
-```
+Uses picomatch semantics: `*`, `**` (recursive), `?`, `[abc]`.
 
 ---
 
 ## Part 2: Command Rules
 
-Define how to parse and check specific commands.
+Command rules use **prefix matching** with **word boundary enforcement**.
 
-### Schema
+### Matching Algorithm
 
-#### `[commands.{name}]`
+The command is normalized as:
+
+```
+normalized = command_name + " " + args.join(" ")
+```
+
+A rule matches if `normalized` starts with **any** of the rule's `names`, **and** the character immediately after the matched prefix is either end-of-string or a space.
+
+| `names` | `git status` | `git push origin` | `github` |
+|---------|-------------|-------------------|----------|
+| `["git"]` | ✓ match | ✓ match | ✗ no match |
+| `["git push"]` | ✗ no match | ✓ match | ✗ no match |
+| `["git status"]` | ✓ match | ✗ no match | ✗ no match |
+| `["gcc", "clang"]` | ✗ no match | ✗ no match | ✗ no match |
+
+### Rule Resolution
+
+Rules are checked in **array order**. The **LAST matching rule wins**.
+
+Place **general rules first**, **specific overrides after**.
+
+```toml
+# General rule first
+[[commands.rules]]
+names = ["git"]
+action = "ask"
+
+# Specific override after
+[[commands.rules]]
+names = ["git push"]
+action = "deny"
+```
+
+For `git push origin`: both match. Last wins → `deny`.
+
+### Base Table
+
+```toml
+[commands]
+default = "allow"     # Fallback when no rule matches
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `default` | string | Yes | `"allow""` | Action when no rule matches |
+
+### Rule Schema
+
+```toml
+[[commands.rules]]
+names = ["git push"]
+action = "deny"
+reason = "Modifies remote state"
+positionals = { default_perm = ["read"], overrides = { "-1" = ["write"] } }
+options = { "-o" = ["write"] }
+flags = [
+  { flag = "--force", action = "ask" }
+]
+pre_checks = [{ env = "VIRTUAL_ENV", match = "", action = "deny" }]
+```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `default_action` | string | Yes | Action when no specific check applies |
-| `reason` | string | No | Explanation for user |
-| `aliases` | string[] | No | Alternative names - each gets a copy of this config |
+| `names` | string[] | Yes | One or more prefixes to match against the normalized command. A rule matches if **any** prefix matches. |
+| `action` | string | No | `"allow"`, `"ask"`, or `"deny"`. Defaults to `[commands].default` when omitted. Only needed when the rule has no `positionals`/`options`/`flags`/`pre_checks`, or when you want a different fallback than the global default. |
+| `reason` | string | No | Explanation shown to user in ask dialog, and to agent on block. Has no effect when action is `"allow"`. Use it to guide agents away from undesired alternatives. |
+| `positionals` | inline table | No | Which positional args are file paths |
+| `options` | inline table | No | Option flags that take values |
+| `flags` | array of inline tables | No | Boolean flags and their direct actions |
+| `pre_checks` | array of inline tables | No | Environment pre-conditions |
 
-#### Global Default for Unknown Commands
+Each rule is **self-contained**. No inheritance from other rules.
 
-Use `[commands._]` to set the default action for any command not explicitly defined. This provides a low-friction baseline.
+#### Positional Arguments
 
 ```toml
-[commands._]
-default_action = "allow"
-reason = "Unknown commands default to allow (low-friction)"
+positionals = {
+  default_perm = ["read"],              # permission for all positionals
+  overrides = { "0" = ["write"], "-1" = ["write"] }  # index → permission
+}
+
+# Multiple permissions on the same argument (e.g. mv checks read + write)
+positionals = {
+  default_perm = ["read", "write"],
+  overrides = { "-1" = ["write"] }
+}
 ```
 
-Commands are looked up by exact match, falling back to `[commands._]` if not found.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `default_perm` | string[] | Yes | `["read"]`, `["write"]`, `["read", "write"]` (strictest wins), or `[]` (no check) |
+| `overrides` | map | No | Index (string) → string[] permission. `"0"` = first positional after matched prefix, `"-1"` = last |
 
-#### Aliases
+Indices count from the **first positional after the matched prefix**.
 
-Aliases are **expanded** during config loading. Each alias gets its own `CommandConfig` copy, enabling O(1) lookup and independent override:
+**Permission values:** `["read"]` checks `permissions.read`, `["write"]` checks `permissions.write`, `["read", "write"]` checks both (strictest wins), `[]` skips the check. Deletion is a write operation — use `["write"]` for paths that will be deleted.
+
+#### Options
 
 ```toml
-[commands.npm]
-default_action = "allow"
-aliases = ["pnpm", "yarn"]  # Each gets a copy of npm's config
-
-[commands.npm.flags]
-"-g" = { action = "deny", reason = "Use local installs" }
+options = {
+  "-o" = ["write"],    # option value checked as write path
+  "-I" = ["read"],     # option value checked as read path
+  "-n" = []            # option value is not a path
+}
 ```
 
-After loading, this becomes three independent entries:
-- `npm` → allow, with `-g` denied
-- `pnpm` → allow, with `-g` denied  
-- `yarn` → allow, with `-g` denied
+Option values are **consumed** and not counted as positionals.
 
-**Overriding aliases independently:**
+#### Flags
 
 ```toml
-# Override just pnpm to be more strict
-[commands.pnpm]
-default_action = "ask"
-reason = "Require confirmation for pnpm"
+flags = [
+  { flag = "--force", action = "ask", reason = "Force bypasses confirmation" },
+  { flag = "-f", action = "ask" }
+]
 ```
 
-Now:
-- `npm` → allow (unchanged)
-- `pnpm` → ask (overridden)
-- `yarn` → allow (unchanged)
+If a flag is present in the command arguments, its action is included in the strictest-wins calculation alongside path checks.
 
-### Pre-Checks (Environment)
-
-Validate environment before parsing arguments.
+#### Pre-Checks
 
 ```toml
-[[commands.NAME.pre_checks]]
-env = "ENV_VAR_NAME"
-match = "pattern"
-action = "deny"
-reason = "Optional explanation"
+pre_checks = [
+  { env = "VIRTUAL_ENV", match = "", action = "deny", reason = "Must be in venv" }
+]
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `env` | string | Yes | Environment variable name |
-| `match` | string | Yes | Pattern to match against env value |
-| `action` | string | Yes | `allow`, `ask`, or `deny` |
-| `reason` | string | No | Explanation for user |
+| `match` | string | Yes | Value to match (see match syntax) |
+| `action` | string | Yes | `"allow"`, `"ask"`, or `"deny"` |
+| `reason` | string | No | Explanation shown to user in ask dialog, and to agent on block. Has no effect when action is `"allow"`. Use it to guide agents away from undesired alternatives. |
 
-#### Match Syntax
+**Match syntax:**
+- `"value"` or `":value"` — exact match
+- `"!:value"` — NOT exact match
+- `"glob:pattern"` — glob match
+- `"!glob:pattern"` — NOT glob match
+- `"re:pattern"` — regex match
+- `"!re:pattern"` — NOT regex match
+- `""` — unset or empty variable
 
-The `match` field uses a structured prefix system. The **colon (`:`) is required** for all prefix parsing.
+Multiple pre-checks: **strictest wins** (`deny` > `ask` > `allow`).
 
-| Pattern | Meaning |
-|---------|---------|
-| `value` or `:value` | Exact string match (leading `:` is optional and stripped) |
-| `!value` | Exact match of literal `"!value"` (no colon = literal `!`) |
-| `!:value` | NOT `value` (negated exact match) |
-| `::value` | Exact match of literal `":value"` (escape leading colon) |
-| `glob:pattern` | Glob pattern match |
-| `!glob:pattern` | NOT matching glob pattern |
-| `re:pattern` | Regular expression match |
-| `!re:pattern` | NOT matching regex pattern |
+### Wildcard and Fallback
 
-**Key Rules:**
-- **Colon required:** `!pattern` (no colon) = literal `"!pattern"`, not negation
-- **Negation:** Must use `!:`, `!glob:`, or `!re:` (colon required)
-- **Misspelled types:** `typo:pattern` → exact match of literal `"typo:pattern"` (unrecognized type names are treated as part of the pattern)
-
-Multiple pre-checks are evaluated, **strictest action wins** (`deny` > `ask` > `allow`).
-
-**Note on environment variables:** Unset variables and empty strings (`""`) are treated as equivalent for matching purposes.
+**`[commands].default`** — applied when no rule matches. Override this in user/project config to change how unknown commands are handled:
 
 ```toml
-[[commands.cp.pre_checks]]
-env = "USER"
-match = "root"
+# In ~/.pi/agent/sanity.toml or .pi/sanity.toml
+[commands]
+default = "ask"       # change from built-in "allow" to "ask"
+```
+
+**`names = [""]`** — matches every command (empty string is a prefix of everything). Due to last-match-wins, a `names = [""]` rule at the end of the array overrides **all** previous rules. This effectively erases the entire command rule list.
+
+Use `names = [""]` **only at the beginning of a rules list** to discard inherited rules from upper-level configs. Using it in the middle or at the end makes no sense — it would silently override everything above it.
+
+```toml
+# In project config: discard all global rules, start fresh
+[[commands.rules]]
+names = [""]
+action = "allow"
+
+# Now define project-specific rules from scratch
+[[commands.rules]]
+names = ["git push"]
 action = "deny"
-reason = "Don't run as root"
-
-[[commands.cp.pre_checks]]
-env = "PWD"
-match = "!glob:{{REPO}}/*"
-action = "ask"
-reason = "Outside project directory"
 ```
 
-### Positional Arguments
+### Action Resolution Within a Rule
 
-```toml
-[commands.NAME.positionals]
-default_perm = "read"
-overrides = { "0" = "read,delete", "-1" = "write" }
-```
+All checks within a rule produce results independently. The **strictest action across all results wins** (`deny` > `ask` > `allow`).
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `default_perm` | string | Yes | Default permission for all positionals |
-| `overrides` | map | No | Index → permission overrides |
+1. **Pre-checks** — each matching pre-check contributes its action
+2. **Flags** — each matched flag contributes its action
+3. **Positionals and options** — each file path is checked against each of its declared permissions (`"read"` → `permissions.read`, `"write"` → `permissions.write`). Multiple permissions on the same path: strictest wins.
+4. **Rule `action`** — fallback when no checks produced a non-allow result. If omitted, falls back to `[commands].default`.
 
-**Index syntax:**
-- `0`, `1`, `2`... - Zero-based index from start
-- `-1`, `-2`... - Negative index from end (`-1` = last argument)
+If any check produces `deny`, the result is `deny`. If the highest is `ask`, the result is `ask`. Only when all checks produce `allow` (or no checks triggered and `action = "allow"`) does the command pass.
 
-**Permission syntax:**
-- Single: `"read"`, `"write"`, `"delete"`
-- Multiple: `"read,delete"` (checks both, strictest wins)
-- Empty: `""` (no check for this argument)
+**Example with file paths:** `cp source.txt dest.txt`
 
-```toml
-[commands.cp.positionals]
-default_perm = "read"           # Most args are sources to read
-overrides = { "-1" = "write" }  # Last arg is destination to write
+- Rule: `names = ["cp"]`, `positionals = { default_perm = ["read"], overrides = { "-1" = ["write"] } }`
+- Arg 0 (`source.txt`): permission = `["read"]` → check `permissions.read` → `default = "allow"` → allow
+- Arg 1 (`dest.txt`): permission = `["write"]` → check `permissions.write` → `default = "deny"` → deny
+- Strictest result: **deny**
 
-[commands.mv.positionals]
-default_perm = "read,delete"
-overrides = { "-1" = "write" }
-```
+**Example with multiple permissions:** `mv source.txt dest.txt`
 
-### Options (Arguments with Values)
+- Rule: `names = ["mv"]`, `positionals = { default_perm = ["read", "write"], overrides = { "-1" = ["write"] } }`
+- Arg 0 (`source.txt`): permissions = `["read", "write"]` → check both
+  - `permissions.read` → `default = "allow"` → allow
+  - `permissions.write` → `default = "deny"` → deny
+  - Strictest: deny
+- Arg 1 (`dest.txt`): permission = `["write"]` → check `permissions.write` → `default = "deny"` → deny
+- Overall strictest result: **deny**
 
-```toml
-[commands.NAME.options]
-"-o" = "write"
-"--output" = "write"
-"-I" = "read"
-```
+**Example with flag + path:** `sed -i ~/.ssh/id_rsa`
 
-The value of the option is checked against the specified permission.
+- Rule: `names = ["sed"]`, `positionals = { default_perm = ["read"] }`, `flags = [{ flag = "-i", action = "ask" }]`
+- Flag `-i` matched → contributes `ask`
+- Positional `~/.ssh/id_rsa`: permission = `["read"]` → check `permissions.read` → `default = "allow"` → allow
+- Strictest result: **ask**
 
-```toml
-[commands.gcc.options]
-"-o" = "write"          # gcc -o output-file
-"-I" = "read"           # gcc -I include-dir
-"-L" = "read"           # gcc -L library-dir
-```
+**Example without file paths:** `shutdown -h now`
 
-Use empty string `""` to exclude an option's value from checks:
-
-```toml
-[commands.head.options]
-"-n" = ""               # head -n 10 (10 is a number, not a path)
-"-c" = ""               # head -c 100 (byte count, not a path)
-```
-
-### Flags (Boolean)
-
-```toml
-[commands.NAME.flags]
-"--force" = { action = "ask", reason = "Can overwrite without warning" }
-"-v" = { action = "allow" }
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `action` | string | Yes | Action if flag is present |
-| `reason` | string | No | Explanation for user |
-
-```toml
-[commands.rm.flags]
-"--force" = { action = "ask", reason = "Force bypasses confirmation" }
-"-f" = { action = "ask" }       # Short form same restriction
-
-[commands.cp.flags]
-"--force" = { action = "ask", reason = "Can overwrite files" }
-"--no-clobber" = { action = "allow" }  # Safe flag, no restriction
-```
+- Rule: `names = ["shutdown"]`, `action = "deny"`
+- No `positionals`, `options`, `flags`, or `pre_checks` declared → `action` applies directly
+- Result: **deny**
 
 ---
 
-## Action Resolution
-
-When multiple checks apply, resolve in this order:
-
-### 1. Pre-Checks (Environment)
-Evaluate all matching pre-checks, **strictest wins** (`deny` > `ask` > `allow`).
-
-### 2. Argument Checks
-Check command arguments using the command's configuration:
-- **Positional arguments**: Check against path permission rules using their specified permission (e.g., `read`, `write`, `delete`)
-- **Option values** (like `-o file`): Check the value against path permission rules
-- **Flags** (boolean): If flag is present, apply its action directly (no path check)
-
-When an argument has multiple permissions (e.g., `read,delete`), check against both and **strictest wins**.
-
-### 3. Default Action
-If no specific checks applied, use command's `default_action`.
-
----
-
-## Example Configurations
+## Examples
 
 ### Paranoid Mode
 
 ```toml
+ask_timeout = 15
+
 [permissions.read]
 default = "allow"
 
 [[permissions.read.overrides]]
 path = ["{{HOME}}/.*"]
-action = "deny"
+action = "ask"
 reason = "Hidden files may contain secrets"
 
 [permissions.write]
 default = "deny"
-reason = "Writing anywhere is blocked by default"
 
 [[permissions.write.overrides]]
 path = ["{{CWD}}/**"]
 action = "allow"
 
-[commands.rm]
-default_action = "deny"
-reason = "Deletion is not allowed by default"
+[commands]
+default = "ask"
 
-[commands.rm.flags]
-"--force" = { action = "deny", reason = "Force flag is too dangerous" }
+[[commands.rules]]
+names = ["git push"]
+flags = [
+  { flag = "--force", action = "ask", reason = "Force push rewrites history" },
+  { flag = "-f", action = "ask", reason = "Force push rewrites history" }
+]
+
+[[commands.rules]]
+names = ["rm"]
+action = "deny"
 ```
 
-### CI/CD (permissive, but protect secrets)
+### CI/CD (permissive, protect secrets)
 
 ```toml
 [permissions.read]
@@ -417,26 +395,76 @@ path = ["{{HOME}}/.ssh/**", "{{HOME}}/.aws/**"]
 action = "deny"
 reason = "Never modify credential files"
 
-[permissions.delete]
-default = "ask"
-reason = "Deletion requires confirmation"
-
-[[permissions.delete.overrides]]
-path = ["{{REPO}}/build/**", "{{TMPDIR}}/**"]
-action = "allow"
+[commands]
+default = "allow"
 ```
 
-### Project with Shared Output Directory
+### Full Command Examples
 
 ```toml
-[permissions.write]
-default = "ask"
-reason = "Writing outside project requires confirmation"
+# Pure command block (no file operations)
+[[commands.rules]]
+names = ["shutdown"]
+action = "deny"
+reason = "System shutdown not permitted"
 
-[[permissions.write.overrides]]
-path = [
-    "{{REPO}}/**",
-    "$SHARED_OUTPUT_DIR/**"
+[[commands.rules]]
+names = ["dd"]
+action = "deny"
+reason = "Low-level disk utility"
+
+# Read files via cat/head/tail
+[[commands.rules]]
+names = ["cat"]
+positionals = { default_perm = ["read"] }
+
+[[commands.rules]]
+names = ["head", "tail"]
+positionals = { default_perm = ["read"] }
+
+# cp: read sources, write destination
+[[commands.rules]]
+names = ["cp"]
+positionals = { default_perm = ["read"], overrides = { "-1" = ["write"] } }
+
+# mv: read + write on sources, write destination
+[[commands.rules]]
+names = ["mv"]
+positionals = { default_perm = ["read", "write"], overrides = { "-1" = ["write"] } }
+
+# gcc/clang: compile sources, write output
+[[commands.rules]]
+names = ["gcc", "clang"]
+positionals = { default_perm = ["read"], overrides = { "-1" = ["write"] } }
+options = { "-o" = ["write"], "-I" = ["read"], "-L" = ["read"] }
+
+# sed: dangerous with -i
+[[commands.rules]]
+names = ["sed"]
+positionals = { default_perm = ["read"] }
+flags = [
+  { flag = "-i", action = "ask" },
+  { flag = "--in-place", action = "ask" }
 ]
-action = "allow"
+
+# npm: deny global installs
+[[commands.rules]]
+names = ["npm"]
+flags = [
+  { flag = "-g", action = "deny" },
+  { flag = "--global", action = "deny" }
+]
+
+# pip: require virtualenv
+[[commands.rules]]
+names = ["pip"]
+pre_checks = [{ env = "VIRTUAL_ENV", match = "", action = "deny" }]
+
+# git push --force: ask before rewriting history
+[[commands.rules]]
+names = ["git push"]
+flags = [
+  { flag = "--force", action = "ask", reason = "Force push rewrites history" },
+  { flag = "-f", action = "ask", reason = "Force push rewrites history" }
+]
 ```
