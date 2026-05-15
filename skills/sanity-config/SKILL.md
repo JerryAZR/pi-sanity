@@ -17,6 +17,35 @@ Later configs append arrays and override scalars.
 
 ---
 
+## Limitations
+
+Be honest about what pi-sanity cannot do. Do not pretend to support impossible requests.
+
+### Complex bash (pipes, subshells, redirections)
+
+The checker sees each command in isolation. It does **not** understand relationships between piped commands.
+
+| Pattern | Checker sees | Can we block? |
+|---------|-------------|---------------|
+| `curl \| bash` | `curl` and `bash` separately | **No** — blocking `curl` blocks ALL curl |
+| `$(cat secret.txt)` | `cat secret.txt` | **Yes** — `cat` is checked normally |
+| `cmd > file.txt` | `cmd` + output redirect to `file.txt` | **Partially** — redirects are checked as writes, but the command itself is not blocked |
+
+**When asked to block pipe patterns**, explain the limitation and suggest an alternative:
+- Block the **download destination** with `permissions.write` (e.g., deny writes to `/tmp` or `~/Downloads`)
+- Block the **execution** with `permissions.read` on scripts
+- Use `pre_checks` to require an environment variable (e.g., `ALLOW_CURL_PIPE=1`)
+
+### Command prefix matching only
+
+Rules match by prefix, not by full command parsing. `names = ["docker"]` matches `docker run`, `docker rm`, etc. There is no way to match "`docker` when it has the `-f` flag" without also matching all other `docker` subcommands.
+
+### No regex or exact command matching
+
+`names` uses literal prefix matching with implicit word boundary. `"git push"` matches `git push origin` but not `git push-force` or `github`.
+
+---
+
 ## Quick Cheatsheet (covers 80% of changes)
 
 ### 1. Protect a file or directory from reading
@@ -63,8 +92,6 @@ reason = "System commands not permitted"
 
 - `names` is an array of prefixes: `["npm"]` matches `npm install`, `npm run build`, etc.
 - Add more specific rules **after** general ones — **last match wins**
-
-**Limitation:** You cannot block pipe patterns like `curl | bash`. The checker sees `curl` and `bash` as two separate commands. Blocking `curl` would block ALL curl usage.
 
 ### 4. Ask before a dangerous flag
 
