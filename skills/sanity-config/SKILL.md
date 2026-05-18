@@ -19,28 +19,18 @@ Later configs append arrays and override scalars.
 
 ## Limitations
 
-Be honest about what pi-sanity cannot do. Do not pretend to support impossible requests.
+The config format has four primitives:
+- **Path permissions** — which files are safe to read/write
+- **Prefix matching** — which command names/subcommands trigger a rule
+- **Per-rule flags** — actions triggered by boolean flags like `-f`
+- **Pre-checks** — environment variable conditions
 
-### Complex bash (pipes, subshells, redirections)
+If a request cannot be expressed with these four primitives, it is **unsupported**. Do not invent features. Be honest and suggest the closest practical alternative.
 
-The checker sees each command in isolation. It does **not** understand relationships between piped commands.
-
-| Pattern | Checker sees | Can we block? |
-|---------|-------------|---------------|
-| `curl \| bash` | `curl` and `bash` separately | **No** — blocking `curl` blocks ALL curl |
-| `$(cat secret.txt)` | `cat secret.txt` | **Yes** — `cat` is checked normally |
-
-
-**When asked to block pipe patterns**, explain the limitation and suggest an alternative:
-- Block the **download destination** with `permissions.write` (e.g., deny writes to `/tmp` or `~/Downloads`)
-- Block the **execution** with `permissions.read` on scripts
-- Use `pre_checks` to require an environment variable (e.g., `ALLOW_CURL_PIPE=1`)
-
-### Expressiveness limits
-
-Rules use **prefix matching** (`names = ["docker rm"]` matches `docker rm -f`) and **per-rule flags** (`flags = [{ flag = "-f", action = "deny" }]`). Most common patterns can be expressed this way.
-
-If the user's request **cannot** be expressed with prefix matching, per-rule flags, path permissions, or pre_checks, be honest about the limitation. Do not invent unsupported features. Suggest the closest practical alternative instead.
+**Common unsupported patterns:**
+- **Pipe relationships** — `curl | bash` is seen as two independent commands. You can block `curl` entirely, but not only when piped to `bash`.
+- **Dynamic execution** — `eval "$(cat script.sh)"` checks `cat` and `eval` separately. It does not parse or check the commands inside the file or string.
+- **Command substitution output** — `bash -c "$(echo rm /)"` checks `echo` (allow) but does not know the output `rm /` will be executed.
 
 ---
 
