@@ -358,13 +358,11 @@ These are fundamental constraints of the current design. Do not expect them to c
 
 `if [ -f file ]; then rm file; fi` — the checker sees `rm file` and evaluates it. It does **not** evaluate the condition. The command is checked regardless of whether it would actually execute.
 
-### Shell builtins are not special
+### No tracing into dynamic execution
 
-`source script.sh`, `. script.sh`, and `eval "cmd"` are parsed as regular commands. There is no special handling that traces into sourced files or evaluates eval strings. `source` has no rule in the defaults, so it falls back to `[commands].default = "allow"`.
+`source script.sh` — the checker sees the `source` command with argument `script.sh`. It does **not** parse or check the commands inside `script.sh`. If you need to restrict sourcing, add a command rule for `source` with `positionals` to check the script path.
 
-### No control flow sensitivity
-
-`if [ -f file ]; then rm file; fi` — the checker walks both the condition (`[ -f file ]`) and the body (`rm file`). It does **not** evaluate whether the condition is true. The `rm` is checked regardless.
+`eval "rm file"` — the checker sees `eval` with a string argument. It does **not** parse the string contents.
 
 ---
 
