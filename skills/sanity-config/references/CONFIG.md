@@ -358,19 +358,13 @@ These are fundamental constraints of the current design. Do not expect them to c
 
 `if [ -f file ]; then rm file; fi` — the checker sees `rm file` and evaluates it. It does **not** evaluate the condition. The command is checked regardless of whether it would actually execute.
 
-### Environment variables are not expanded
-
-`rm $HOME/secret.txt` — the checker sees the literal string `$HOME/secret.txt`, not the expanded path. The path pattern `{{HOME}}/**` will **not** match.
-
-**Workaround:** Use absolute paths or configure the calling environment to expand variables before passing commands.
-
 ### Shell builtins are not special
 
-`source script.sh`, `. script.sh`, and `eval "cmd"` are treated as regular commands. There is no special handling that traces into sourced files or evaluates eval strings.
+`source script.sh`, `. script.sh`, and `eval "cmd"` are parsed as regular commands. There is no special handling that traces into sourced files or evaluates eval strings. `source` has no rule in the defaults, so it falls back to `[commands].default = "allow"`.
 
-### Redirects are checked against path permissions only
+### No control flow sensitivity
 
-`cmd > file.txt` — the command `cmd` is checked via command rules, and `file.txt` is checked as a write path against `permissions.write`. You cannot write command rules that are conditional on redirect presence or target.
+`if [ -f file ]; then rm file; fi` — the checker walks both the condition (`[ -f file ]`) and the body (`rm file`). It does **not** evaluate whether the condition is true. The `rm` is checked regardless.
 
 ---
 
