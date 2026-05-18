@@ -358,6 +358,12 @@ These are fundamental constraints of the current design. Do not expect them to c
 
 `if [ -f file ]; then rm file; fi` — the checker sees `rm file` and evaluates it. It does **not** evaluate the condition. The command is checked regardless of whether it would actually execute.
 
+### Command substitutions are checked but not their output usage
+
+`bash -c "$(echo rm /)"` — the checker finds `echo rm /` inside the substitution and checks it (`echo` → allow). It does **not** understand that the output `rm /` is passed to `bash -c` and will be executed. The substitution contains an innocent-looking command but produces dangerous output.
+
+`eval "$(cat script.sh)"` — same problem. `cat` is checked against `permissions.read`, but the checker doesn't know the file contents will be executed by `eval`.
+
 ### No tracing into dynamic execution
 
 `source script.sh` — the checker sees the `source` command with argument `script.sh`. It does **not** parse or check the commands inside `script.sh`. If you need to restrict sourcing, add a command rule for `source` with `positionals` to check the script path.
