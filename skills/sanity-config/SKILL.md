@@ -36,13 +36,11 @@ The checker sees each command in isolation. It does **not** understand relations
 - Block the **execution** with `permissions.read` on scripts
 - Use `pre_checks` to require an environment variable (e.g., `ALLOW_CURL_PIPE=1`)
 
-### Command prefix matching only
+### Expressiveness limits
 
-Rules match by prefix, not by full command parsing. `names = ["docker"]` matches `docker run`, `docker rm`, etc. There is no way to match "`docker` when it has the `-f` flag" without also matching all other `docker` subcommands.
+Rules use **prefix matching** (`names = ["docker rm"]` matches `docker rm -f`) and **per-rule flags** (`flags = [{ flag = "-f", action = "deny" }]`). Most common patterns can be expressed this way.
 
-### No regex or exact command matching
-
-`names` uses literal prefix matching with implicit word boundary. `"git push"` matches `git push origin` but not `git push-force` or `github`.
+If the user's request **cannot** be expressed with prefix matching, per-rule flags, path permissions, or pre_checks, be honest about the limitation. Do not invent unsupported features. Suggest the closest practical alternative instead.
 
 ---
 
