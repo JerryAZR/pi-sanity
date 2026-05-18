@@ -29,7 +29,7 @@ The checker sees each command in isolation. It does **not** understand relations
 |---------|-------------|---------------|
 | `curl \| bash` | `curl` and `bash` separately | **No** — blocking `curl` blocks ALL curl |
 | `$(cat secret.txt)` | `cat secret.txt` | **Yes** — `cat` is checked normally |
-| `cmd > file.txt` | `cmd` + output redirect to `file.txt` | **Partially** — redirects are checked as writes, but the command itself is not blocked |
+
 
 **When asked to block pipe patterns**, explain the limitation and suggest an alternative:
 - Block the **download destination** with `permissions.write` (e.g., deny writes to `/tmp` or `~/Downloads`)
