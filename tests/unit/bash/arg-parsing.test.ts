@@ -38,6 +38,30 @@ function makeConfigWithSpecificPath(
   return config;
 }
 
+/**
+ * Build a config with deny defaults and allow overrides for static paths.
+ * Use this when testing that dynamic args are SKIPPED — if a dynamic arg
+ * is incorrectly checked, the deny default catches it.
+ */
+function makeConfigWithDenyDefault(
+  cmdName: string,
+  cmdConfig: CommandConfig,
+  readAllowPatterns: string[] = [],
+  writeAllowPatterns: string[] = [],
+): SanityConfig {
+  const config = createEmptyConfig();
+  config.commands[cmdName] = cmdConfig;
+  config.permissions.read.default = "deny";
+  config.permissions.write.default = "deny";
+  for (const p of readAllowPatterns) {
+    config.permissions.read.overrides.push({ path: [p], action: "allow" });
+  }
+  for (const p of writeAllowPatterns) {
+    config.permissions.write.overrides.push({ path: [p], action: "allow" });
+  }
+  return config;
+}
+
 describe("arg parsing — plain commands", () => {
   describe("flag detection", () => {
     it("should detect standalone short flag", () => {
@@ -337,20 +361,22 @@ describe("arg parsing — dynamic args", () => {
 
   describe("dynamic args excluded from path check", () => {
     it("should not check dynamic arg as a path", () => {
-      // Feature: $(echo /specific) is dynamic → skipped from read check
+      // Feature: $(echo /anything) is dynamic → skipped from read check
       // Failure caught: dynamic args are checked as literal paths
       //
-      // Working: $(echo /specific) skipped, no other args → allow
-      // Buggy:   $(echo /specific) checked as read → matches override → deny
+      // Setup: read default deny, static path /static allowed.
+      // cmd has two args: dynamic $(echo /anything) and static /static.
+      //
+      // Working: $(echo /anything) skipped, /static = pos 0 → read → matches override → allow
+      // Buggy:   $(echo /anything) checked → read → deny (doesn't match override), /static → allow
+      //          → overall deny
       // Wrong result if bug: "deny"
-      const config = makeConfigWithSpecificPath(
-        "cat",
+      const config = makeConfigWithDenyDefault(
+        "cmd",
         { default_action: "allow", positionals: { default_perm: ["read"] } },
-        "read",
-        "/specific",
-        "deny",
+        ["/static"],
       );
-      const result = checkBash("cat $(echo /specific)", config);
+      const result = checkBash("cmd $(echo /anything) /static", config);
       assert.strictEqual(result.action, "allow");
     });
   });
@@ -397,22 +423,20 @@ describe("arg parsing — dynamic args", () => {
     });
 
     it("should handle multiple dynamic args mixed with static", () => {
-      // Feature: override "2" applies to third positional ($(echo b)),
-      // which is dynamic → skipped → no check → allow
+      // Feature: dynamic args skipped, static args checked and allowed
       //
-      // Failure caught: dynamic detection broken, $(echo b) checked as static
+      // Setup: read default deny, static paths allowed.
+      // cmd has 4 args: dynamic, static1, dynamic, static2.
       //
-      // Working: $(echo b) is dynamic → skipped → allow
-      // Buggy:   $(echo b) treated as static → read /specific → deny
+      // Working: static1 and static2 checked → read → allowed; dynamic skipped → allow
+      // Buggy:   dynamic args checked → read → deny (don't match allow override)
       // Wrong result if bug: "deny"
-      const config = makeConfigWithSpecificPath(
+      const config = makeConfigWithDenyDefault(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [], overrides: { "2": ["read"] } } },
-        "read",
-        "/specific",
-        "deny",
+        { default_action: "allow", positionals: { default_perm: ["read"] } },
+        ["/static*"],
       );
-      const result = checkBash("cmd $(echo a) static1 $(echo /specific) static2", config);
+      const result = checkBash("cmd $(echo a) /static1 $(echo b) /static2", config);
       assert.strictEqual(result.action, "allow");
     });
   });
@@ -420,42 +444,42 @@ describe("arg parsing — dynamic args", () => {
   describe("dynamic args with options and flags", () => {
     it("should skip dynamic args even after option consumption", () => {
       // Feature: -o consumes $(echo /opt), $(echo /pos) is positional 0
-      // but dynamic → skipped
+      // but dynamic → skipped. /static is positional 1 → checked.
       //
       // Failure caught: dynamic positional not skipped
       //
-      // Working: $(echo /pos) dynamic → skipped → allow
-      // Buggy:   $(echo /pos) checked as read → matches override → deny
+      // Setup: read default deny, /static allowed.
+      //
+      // Working: $(echo /pos) skipped, /static = pos 1 → read → allowed → allow
+      // Buggy:   $(echo /pos) checked → read → deny (no override match)
       // Wrong result if bug: "deny"
-      const config = makeConfigWithSpecificPath(
+      const config = makeConfigWithDenyDefault(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [], overrides: { "0": ["read"] } }, options: { "-o": ["write"] } },
-        "read",
-        "/pos",
-        "deny",
+        { default_action: "allow", positionals: { default_perm: ["read"] }, options: { "-o": ["write"] } },
+        ["/static"],
       );
-      const result = checkBash("cmd -o $(echo /opt) $(echo /pos)", config);
+      const result = checkBash("cmd -o $(echo /opt) $(echo /pos) /static", config);
       assert.strictEqual(result.action, "allow");
     });
   });
 
   describe("dynamic option values", () => {
     it("should skip dynamic option value from path check", () => {
-      // Feature: -o consumes $(echo /specific) as option value, but it's dynamic → skipped
+      // Feature: -o consumes $(echo /opt) as option value, but it's dynamic → skipped
       //
       // Failure caught: dynamic option value not skipped
       //
-      // Working: $(echo /specific) dynamic → skipped → allow
-      // Buggy:   $(echo /specific) checked as write → matches override → deny
+      // Setup: write default deny (option value), read default deny with /static allowed.
+      //
+      // Working: $(echo /opt) skipped, /static = pos 0 → read → allowed → allow
+      // Buggy:   $(echo /opt) checked as write → deny (no write override)
       // Wrong result if bug: "deny"
-      const config = makeConfigWithSpecificPath(
+      const config = makeConfigWithDenyDefault(
         "gcc",
-        { default_action: "allow", positionals: { default_perm: [] }, options: { "-o": ["write"] } },
-        "write",
-        "/specific",
-        "deny",
+        { default_action: "allow", positionals: { default_perm: ["read"] }, options: { "-o": ["write"] } },
+        ["/static"],
       );
-      const result = checkBash("gcc -o $(echo /specific) main.c", config);
+      const result = checkBash("gcc -o $(echo /opt) /static", config);
       assert.strictEqual(result.action, "allow");
     });
 
@@ -479,21 +503,21 @@ describe("arg parsing — dynamic args", () => {
     });
 
     it("should handle equals form with dynamic value", () => {
-      // Feature: -o=$(echo /specific) — entire token is dynamic → skipped
+      // Feature: -o=$(echo /opt) — entire token is dynamic → skipped
       //
       // Failure caught: equals form not handled, or dynamic not detected in same token
       //
-      // Working: token is dynamic → skipped → allow
-      // Buggy:   value extracted and checked as write → deny
+      // Setup: write default deny (option value), read default deny with /static allowed.
+      //
+      // Working: token skipped, /static = pos 0 → read → allowed → allow
+      // Buggy:   value extracted → write → deny (no write override)
       // Wrong result if bug: "deny"
-      const config = makeConfigWithSpecificPath(
+      const config = makeConfigWithDenyDefault(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [] }, options: { "-o": ["write"] } },
-        "write",
-        "/specific",
-        "deny",
+        { default_action: "allow", positionals: { default_perm: ["read"] }, options: { "-o": ["write"] } },
+        ["/static"],
       );
-      const result = checkBash("cmd -o=$(echo /specific)", config);
+      const result = checkBash("cmd -o=$(echo /opt) /static", config);
       assert.strictEqual(result.action, "allow");
     });
   });
@@ -537,51 +561,35 @@ describe("arg parsing — dynamic args", () => {
     });
 
     it("should handle declared multi-char flag atomically in combined context", () => {
-      // Feature: -Wall declared as flag → atomic skip.
-      // -W is an option, but -Wall being declared prevents decomposition.
-      // So main.c becomes positional 0.
+      // Feature: -Wall declared as flag → atomic. -W option does NOT consume /file.
+      // So /file remains a positional (read-checked).
       //
-      // Setup: positional 0 is read-checked. Only /specific triggers deny.
+      // Failure caught: checkPositionals decomposes -Wall into -W option,
+      // consuming /file as write value → no positional → no read check.
       //
-      // Working: main.c = pos 0 → read → allow
-      // Buggy:   -Wall decomposed, -W option detected, main.c consumed as -W value
-      //          → write on main.c → allow (write default allow)
-      //          → but we need a case where buggy = different result
+      // Setup:
+      //   -Wall flag → ask
+      //   -W option → write check
+      //   positionals → read check
+      //   read default deny, /file allowed
+      //   write default deny
       //
-      // Better setup: make -W option check read, and main.c is /specific
-      const config = makeConfigWithSpecificPath(
+      // Working: -Wall flag → ask, /file = pos 0 → read → allowed → strictest = ask
+      // Buggy:   -Wall decomposed → -W option consumes /file → write → deny,
+      //          no positional → no read check → overall deny
+      // Wrong result if bug: "deny"
+      const config = makeConfigWithDenyDefault(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [] }, flags: [{ flag: "-Wall", action: "allow" }], options: { "-W": ["read"] } },
-        "read",
-        "/specific",
-        "deny",
+        {
+          default_action: "allow",
+          positionals: { default_perm: ["read"] },
+          flags: [{ flag: "-Wall", action: "ask" }],
+          options: { "-W": ["write"] },
+        },
+        ["/file"],
       );
-      // cmd -Wall /specific
-      // Working: -Wall atomic skip, /specific = pos 0 → read → deny
-      // Buggy:   -Wall decomposed to -W option, /specific consumed as -W value → read → deny
-      // Hmm, both give deny. Need different paths.
-      //
-      // cmd -Wall /other
-      // Working: -Wall atomic skip, /other = pos 0 → read → allow
-      // Buggy:   -Wall decomposed, -W option consumes /other → read → allow
-      // Both give allow too.
-      //
-      // The real test is that -Wall triggers the FLAG action, not the -W option.
-      // If decomposition happens, -W option fires but -Wall flag doesn't.
-      // We need a config where -Wall flag = ask and -W option = deny.
-      // Working: -Wall matches flag → ask
-      // Buggy:   -Wall decomposed → -W option consumes next arg → no next arg → no option check
-      //          → but -W option doesn't have an action directly, it just checks the VALUE
-      //          → if no value, no check → falls to default_action allow
-      // Wrong result if bug: "allow"
-      const config2 = makeConfig("cmd", {
-        default_action: "allow",
-        positionals: { default_perm: [] },
-        flags: [{ flag: "-Wall", action: "ask" }],
-        options: { "-W": ["write"] },
-      });
-      const result2 = checkBash("cmd -Wall", config2);
-      assert.strictEqual(result2.action, "ask");
+      const result = checkBash("cmd -Wall /file", config);
+      assert.strictEqual(result.action, "ask");
     });
   });
 });
