@@ -168,14 +168,6 @@ function checkSingleCommand(
   const positionalResults = checkPositionals(cmd, config, cmdConfig);
   results.push(...positionalResults);
 
-  // 4. Dynamic args can't be statically checked — ask if the rule has positionals
-  if (cmd.dynamicArgs.length > 0 && cmdConfig?.positionals) {
-    results.push({
-      action: "ask",
-      reason: "Command contains dynamic arguments (substitutions or expansions) that cannot be statically checked",
-    });
-  }
-
   // 4. Check redirects
   const redirectResults = checkRedirects(cmd, config);
   results.push(...redirectResults);

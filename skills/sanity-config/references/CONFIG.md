@@ -238,8 +238,6 @@ options = {
 
 Option values are **consumed** and not counted as positionals. Both `-o value` and `-o=value` forms are supported.
 
-**Note:** Combined short options with embedded values (e.g., `tar -xzf file.tar.gz` where `-f`'s value is the next arg, not `=`-separated) rely on the parser detecting the option letter within the combined token. This works for simple cases but may miss options in complex combined short-option strings.
-
 #### Flags
 
 ```toml
@@ -251,9 +249,12 @@ flags = [
 
 If a flag is present in the command arguments, its action is included in the strictest-wins calculation alongside path checks.
 
-**Combined short flags:** A boolean flag like `-f` is detected even when combined with other short flags (e.g., `-rf` contains `-f`). Long flags (`--force`) require an exact match.
+**Matching behavior:**
+- Long flags (`--force`) require an exact match.
+- Short boolean flags (`-f`) are detected even when combined with other short flags (e.g., `-rf` contains `-f`).
+- Multi-character single-dash flags (`-Wall`, `-O2`) require an exact match — they are not decomposed into individual letters.
 
-**Note:** Combined short options that take values (e.g., `tar -xzf` where `-f` takes the next argument) are not reliably parsed without a command schema. Configure value-taking options in `options`, not `flags`.
+Value-taking flags should be configured in `options`, not `flags`.
 
 #### Pre-Checks
 
@@ -369,12 +370,6 @@ These are fundamental constraints of the current design. Do not expect them to c
 `bash -c "$(echo rm /)"` — the checker finds `echo rm /` inside the substitution and checks it (`echo` → allow). It does **not** understand that the output `rm /` is passed to `bash -c` and will be executed. The substitution contains an innocent-looking command but produces dangerous output.
 
 `eval "$(cat script.sh)"` — same problem. `cat` is checked against `permissions.read`, but the checker doesn't know the file contents will be executed by `eval`.
-
-### Dynamic arguments trigger `ask`
-
-Arguments that contain command substitutions (`$(...)`), parameter expansions (`$VAR`), brace expansions (`{a,b}`), or process substitutions (`<(...)`) cannot be statically evaluated. When a rule has `positionals` configured and a command contains such dynamic arguments, the checker produces `ask` instead of attempting to match the unevaluated string against path permissions.
-
-The substituted commands themselves are still checked independently (e.g., `cat $(echo ~/.ssh/id_rsa)` checks both `echo` and `cat`).
 
 ### No tracing into dynamic execution
 
