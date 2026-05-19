@@ -24,26 +24,38 @@ import type { CheckResult } from "./types.js";
 
 /**
  * Check if a flag is present in command arguments.
- * Handles combined short flags (e.g., -rf contains -f) and exact matches.
- * Long flags (--force) require exact match only.
+ *
+ * Algorithm:
+ * 1. Exact match always works (handles --long, -Wall, -O2, standalone -f).
+ * 2. For single-char short flags (-x), if exact match fails, check if the
+ *    character appears in combined short flag tokens.
+ * 3. Multi-char single-dash tokens that are explicitly declared in the config
+ *    (e.g., -Wall) are treated as atomic — they are not decomposed.
  */
-function hasFlag(args: string[], flag: string): boolean {
-  if (flag.startsWith("--")) {
-    return args.includes(flag);
-  }
-  if (flag.startsWith("-") && flag.length === 2) {
+function hasFlag(
+  args: string[],
+  flag: string,
+  declaredFlags: Set<string>,
+): boolean {
+  // Exact match
+  if (args.includes(flag)) return true;
+
+  // Single-char short flag: try combined match
+  if (flag.startsWith("-") && flag.length === 2 && !flag.startsWith("--")) {
     const flagChar = flag[1];
-    return args.some((arg) => {
-      if (!arg.startsWith("-") || arg.startsWith("--")) return false;
-      if (arg.length === 2) return arg[1] === flagChar;
-      // Heuristic: combined short flags are all lowercase (e.g., -rf).
-      // Multi-char flags like -Wall or -O2 are treated as atomic.
-      const rest = arg.slice(1);
-      const isCombined = /^[a-z]+$/.test(rest);
-      return isCombined && rest.includes(flagChar);
-    });
+    for (const arg of args) {
+      if (!arg.startsWith("-") || arg.startsWith("--") || arg.length < 2)
+        continue;
+
+      // If this arg is a declared multi-char flag, it's atomic — don't decompose
+      if (arg.length > 2 && declaredFlags.has(arg)) continue;
+
+      // Check if the flag character appears in the combined token
+      if (arg.slice(1).includes(flagChar)) return true;
+    }
   }
-  return args.includes(flag);
+
+  return false;
 }
 
 /**
@@ -160,8 +172,9 @@ function checkSingleCommand(
 
   // 2. Check flags
   if (cmdConfig?.flags) {
+    const declaredFlags = new Set(cmdConfig.flags.map((f) => f.flag));
     for (const flagConfig of cmdConfig.flags) {
-      if (hasFlag(cmd.args, flagConfig.flag)) {
+      if (hasFlag(cmd.args, flagConfig.flag, declaredFlags)) {
         results.push({
           action: flagConfig.action,
           reason: flagConfig.reason,

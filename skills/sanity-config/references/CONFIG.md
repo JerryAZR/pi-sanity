@@ -252,7 +252,7 @@ If a flag is present in the command arguments, its action is included in the str
 **Matching behavior:**
 - Long flags (`--force`) require an exact match.
 - Short boolean flags (`-f`) are detected even when combined with other short flags (e.g., `-rf` contains `-f`).
-- Multi-character single-dash flags (`-Wall`, `-O2`) require an exact match — they are not decomposed into individual letters.
+- Multi-character single-dash flags (`-Wall`, `-O2`) are exact-match only **when declared in the config**. If a token like `-Wall` is not declared as a flag, single-char flags can match inside it (e.g., `-W` would match). Declare multi-char flags explicitly to make them atomic.
 
 Value-taking flags should be configured in `options`, not `flags`.
 

@@ -75,7 +75,7 @@ describe("arg parsing — plain commands", () => {
       assert.strictEqual(result.action, "allow");
     });
 
-    it("should match multi-char single-dash flag exactly (-Wall)", () => {
+    it("should match declared multi-char single-dash flag exactly (-Wall)", () => {
       const config = makeConfig("gcc", {
         default_action: "allow",
         flags: [{ flag: "-Wall", action: "ask" }],
@@ -84,14 +84,27 @@ describe("arg parsing — plain commands", () => {
       assert.strictEqual(result.action, "ask");
     });
 
-    it("should NOT decompose multi-char single-dash flag", () => {
+    it("should NOT decompose declared multi-char single-dash flag", () => {
+      const config = makeConfig("gcc", {
+        default_action: "allow",
+        flags: [
+          { flag: "-Wall", action: "ask" },
+          { flag: "-W", action: "deny" },
+        ],
+      });
+      // -Wall is declared, so it's atomic. gcc -Wall matches -Wall (ask), not -W.
+      const result = checkBash("gcc -Wall", config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should decompose undeclared multi-char single-dash flag for single-char match", () => {
       const config = makeConfig("gcc", {
         default_action: "allow",
         flags: [{ flag: "-W", action: "deny" }],
       });
-      // -Wall should NOT match -W (exact match for multi-char flags)
+      // -Wall is NOT declared, so -W can match inside it
       const result = checkBash("gcc -Wall", config);
-      assert.strictEqual(result.action, "allow");
+      assert.strictEqual(result.action, "deny");
     });
 
     it("should NOT match short flag inside non-flag arg", () => {
