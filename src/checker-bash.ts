@@ -59,26 +59,6 @@ function hasFlag(
 }
 
 /**
- * Get the value of an option from command arguments.
- * Handles both `-o value` and `-o=value` forms.
- * Returns undefined if the option is not found.
- */
-function getOptionValue(args: string[], option: string): string | undefined {
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    // Check -o=value form
-    if (arg.startsWith(`${option}=`)) {
-      return arg.slice(option.length + 1);
-    }
-    // Check -o value form
-    if (arg === option) {
-      return args[i + 1];
-    }
-  }
-  return undefined;
-}
-
-/**
  * Action priority for comparison (higher = stricter)
  */
 const ACTION_PRIORITY: Record<Action, number> = {
@@ -220,7 +200,16 @@ function checkSingleCommand(
 }
 
 /**
- * Check positional arguments
+ * Check positional arguments and option values.
+ *
+ * Single-pass state machine:
+ * 1. Scan args left-to-right.
+ * 2. If pendingOption is set, consume current arg as option value.
+ * 3. If arg is `-o=value`, split and consume value inline.
+ * 4. If arg is a declared flag, skip it.
+ * 5. If arg is a declared option, set pendingOption.
+ * 6. If arg is a combined short string containing an option, set pendingOption.
+ * 7. Otherwise, push to positionals array.
  */
 function checkPositionals(
   cmd: FoundCommand,
@@ -228,93 +217,104 @@ function checkPositionals(
   cmdConfig: CommandConfig | undefined,
 ): { action: Action; reason?: string }[] {
   const results: { action: Action; reason?: string }[] = [];
-
-  if (!cmdConfig?.positionals) {
-    return results;
-  }
-
-  const { default_perm, overrides } = cmdConfig.positionals;
   const args = cmd.args;
 
-  // Filter out options and flags, but preserve original indices for dynamic-arg detection
+  const declaredFlags = new Set(cmdConfig?.flags?.map((f) => f.flag) ?? []);
+  const declaredOptions = new Set(Object.keys(cmdConfig?.options ?? {}));
+
   interface PositionalEntry {
     arg: string;
     originalIndex: number;
   }
   const positionalEntries: PositionalEntry[] = [];
-  let skipNext = false;
+  let pendingOption: string | null = null;
+
   for (let i = 0; i < args.length; i++) {
-    if (skipNext) {
-      skipNext = false;
-      continue;
-    }
     const arg = args[i];
-    // Check if this is an option with a value
-    if (cmdConfig.options && arg in cmdConfig.options) {
-      // Skip the option and its value
-      skipNext = true;
+
+    // 1. Consume pending option value
+    if (pendingOption) {
+      const perm = cmdConfig!.options![pendingOption];
+      if (!cmd.dynamicIndices.has(i)) {
+        for (const p of perm) {
+          const res = checkPathWithPermission(arg, p, config);
+          if (res.action !== "allow") results.push(res);
+        }
+      }
+      pendingOption = null;
       continue;
     }
-    // Skip standalone flags
-    if (cmdConfig.flags) {
-      const isDeclaredFlag = cmdConfig.flags.some((f) => f.flag === arg);
-      if (isDeclaredFlag) continue;
+
+    // 2. -o=value form
+    if (arg.includes("=") && arg.startsWith("-") && !arg.startsWith("--")) {
+      const eqIdx = arg.indexOf("=");
+      const key = arg.slice(0, eqIdx);
+      const value = arg.slice(eqIdx + 1);
+      if (declaredOptions.has(key)) {
+        const perm = cmdConfig!.options![key];
+        if (!cmd.dynamicIndices.has(i)) {
+          for (const p of perm) {
+            const res = checkPathWithPermission(value, p, config);
+            if (res.action !== "allow") results.push(res);
+          }
+        }
+        continue;
+      }
     }
-    // Skip other options (starting with -)
-    if (arg.startsWith("-")) {
+
+    // 3. Exact flag match — skip (already checked in checkSingleCommand)
+    if (declaredFlags.has(arg)) continue;
+
+    // 4. Exact option match
+    if (declaredOptions.has(arg)) {
+      pendingOption = arg;
       continue;
     }
+
+    // 5. Combined short string
+    if (arg.startsWith("-") && !arg.startsWith("--") && arg.length > 2) {
+      // If it's a declared multi-char flag, skip it atomically
+      if (declaredFlags.has(arg)) continue;
+
+      // Check for option characters inside
+      const chars = arg.slice(1).split("");
+      for (const char of chars) {
+        const short = `-${char}`;
+        if (declaredOptions.has(short)) {
+          pendingOption = short; // next arg is the value
+          break;
+        }
+      }
+      continue;
+    }
+
+    // 6. Unknown option
+    if (arg.startsWith("-")) continue;
+
+    // 7. Positional
     positionalEntries.push({ arg, originalIndex: i });
   }
 
-  // Check each positional
-  for (let i = 0; i < positionalEntries.length; i++) {
-    const { arg, originalIndex } = positionalEntries[i];
-    const indexStr = String(i);
-    const negIndexStr = String(i - positionalEntries.length); // -1, -2, etc.
+  // Check positionals with index-based overrides
+  if (cmdConfig?.positionals) {
+    const { default_perm, overrides } = cmdConfig.positionals;
+    for (let i = 0; i < positionalEntries.length; i++) {
+      const { arg, originalIndex } = positionalEntries[i];
+      const indexStr = String(i);
+      const negIndexStr = String(i - positionalEntries.length);
 
-    // Determine permission for this position
-    let perm = default_perm;
-    if (overrides) {
-      // Check both positive and negative indices
-      if (overrides[negIndexStr]) {
-        perm = overrides[negIndexStr];
-      } else if (overrides[indexStr]) {
-        perm = overrides[indexStr];
+      let perm = default_perm;
+      if (overrides) {
+        if (overrides[negIndexStr]) perm = overrides[negIndexStr];
+        else if (overrides[indexStr]) perm = overrides[indexStr];
       }
-    }
 
-    // Empty perm means no check
-    if (perm.length === 0) {
-      continue;
-    }
+      if (perm.length === 0) continue;
+      if (cmd.dynamicIndices.has(originalIndex)) continue;
 
-    // Skip path check for dynamic args (runtime-determined values)
-    if (cmd.dynamicIndices.has(originalIndex)) {
-      continue;
-    }
-
-    // Check the path with each specified permission
-    for (const p of perm) {
-      const checkResult = checkPathWithPermission(arg, p, config);
-      if (checkResult.action !== "allow") {
-        results.push(checkResult);
-      }
-    }
-  }
-
-  // Check option values
-  if (cmdConfig.options) {
-    for (const optionKey of Object.keys(cmdConfig.options)) {
-      const value = getOptionValue(args, optionKey);
-      if (value && !value.startsWith("-")) {
-        const perm = cmdConfig.options[optionKey];
-        for (const p of perm) {
-          const checkResult = checkPathWithPermission(value, p, config);
-          if (checkResult.action !== "allow") {
-            results.push(checkResult);
-          }
-        }
+      for (const p of perm) {
+        const res = checkPathWithPermission(arg, p, config);
+        if (res.action !== "allow") results.push(res);
       }
     }
   }

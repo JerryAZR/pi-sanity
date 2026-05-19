@@ -347,4 +347,88 @@ describe("arg parsing — dynamic args", () => {
       assert.strictEqual(result.action, "allow");
     });
   });
+
+  describe("dynamic option values", () => {
+    it("should skip dynamic option value from path check", () => {
+      const config = makeConfigWithDenyWrite("gcc", {
+        default_action: "allow",
+        positionals: { default_perm: ["read"] },
+        options: { "-o": ["write"] },
+      });
+      // gcc -o $(echo /etc/file) main.c
+      // -o consumes $(echo /etc/file) as value → dynamic, skipped
+      // main.c is positional 0 → read → allow
+      const result = checkBash("gcc -o $(echo /etc/file) main.c", config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should check static option value normally", () => {
+      const config = makeConfigWithDenyWrite("gcc", {
+        default_action: "allow",
+        positionals: { default_perm: ["read"] },
+        options: { "-o": ["write"] },
+      });
+      const result = checkBash("gcc -o /etc/file main.c", config);
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should handle equals form with dynamic value", () => {
+      const config = makeConfigWithDenyWrite("cmd", {
+        default_action: "allow",
+        positionals: { default_perm: [] },
+        options: { "-o": ["write"] },
+      });
+      // -o=$(echo /etc/file) — value is in same token, so originalIndex is 0
+      // The whole token is dynamic (has CommandExpansion), so skip
+      const result = checkBash("cmd -o=$(echo /etc/file)", config);
+      assert.strictEqual(result.action, "allow");
+    });
+  });
+
+  describe("merged options and flags (tar-like)", () => {
+    it("should detect option in combined short string and consume next arg", () => {
+      const config = makeConfig("tar", {
+        default_action: "allow",
+        positionals: { default_perm: ["read"] },
+        flags: [
+          { flag: "-x", action: "allow" },
+          { flag: "-z", action: "allow" },
+        ],
+        options: { "-f": ["read"] },
+      });
+      // tar -xzf file.tar.gz
+      // -x and -z are flags (checked by hasFlag in checkSingleCommand)
+      // -f is option in combined string → next arg consumed
+      // file.tar.gz is -f's value → read check → allow
+      const result = checkBash("tar -xzf file.tar.gz", config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should apply option check on consumed value from combined string", () => {
+      const config = makeConfigWithDenyWrite("tar", {
+        default_action: "allow",
+        positionals: { default_perm: [] },
+        flags: [{ flag: "-x", action: "allow" }],
+        options: { "-f": ["write"] },
+      });
+      // tar -xf /etc/file.tar.gz
+      // -x is flag, -f is option → next arg consumed as write
+      const result = checkBash("tar -xf /etc/file.tar.gz", config);
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should handle declared multi-char flag atomically in combined context", () => {
+      const config = makeConfig("cmd", {
+        default_action: "allow",
+        positionals: { default_perm: ["read"] },
+        flags: [{ flag: "-Wall", action: "ask" }],
+        options: { "-W": ["write"] },
+      });
+      // -Wall is declared as flag → atomic, not decomposed
+      // So -W option is NOT detected inside -Wall
+      // next arg "main.c" is positional → read → allow
+      const result = checkBash("cmd -Wall main.c", config);
+      assert.strictEqual(result.action, "ask"); // flag match
+    });
+  });
 });
