@@ -33,9 +33,15 @@ function hasFlag(args: string[], flag: string): boolean {
   }
   if (flag.startsWith("-") && flag.length === 2) {
     const flagChar = flag[1];
-    return args.some(
-      (arg) => arg.startsWith("-") && !arg.startsWith("--") && arg.includes(flagChar),
-    );
+    return args.some((arg) => {
+      if (!arg.startsWith("-") || arg.startsWith("--")) return false;
+      if (arg.length === 2) return arg[1] === flagChar;
+      // Heuristic: combined short flags are all lowercase (e.g., -rf).
+      // Multi-char flags like -Wall or -O2 are treated as atomic.
+      const rest = arg.slice(1);
+      const isCombined = /^[a-z]+$/.test(rest);
+      return isCombined && rest.includes(flagChar);
+    });
   }
   return args.includes(flag);
 }
@@ -217,8 +223,12 @@ function checkPositionals(
   const { default_perm, overrides } = cmdConfig.positionals;
   const args = cmd.args;
 
-  // Filter out options (args starting with -)
-  const positionalArgs: string[] = [];
+  // Filter out options and flags, but preserve original indices for dynamic-arg detection
+  interface PositionalEntry {
+    arg: string;
+    originalIndex: number;
+  }
+  const positionalEntries: PositionalEntry[] = [];
   let skipNext = false;
   for (let i = 0; i < args.length; i++) {
     if (skipNext) {
@@ -233,21 +243,22 @@ function checkPositionals(
       continue;
     }
     // Skip standalone flags
-    if (cmdConfig.flags && arg in cmdConfig.flags) {
-      continue;
+    if (cmdConfig.flags) {
+      const isDeclaredFlag = cmdConfig.flags.some((f) => f.flag === arg);
+      if (isDeclaredFlag) continue;
     }
     // Skip other options (starting with -)
     if (arg.startsWith("-")) {
       continue;
     }
-    positionalArgs.push(arg);
+    positionalEntries.push({ arg, originalIndex: i });
   }
 
   // Check each positional
-  for (let i = 0; i < positionalArgs.length; i++) {
-    const arg = positionalArgs[i];
+  for (let i = 0; i < positionalEntries.length; i++) {
+    const { arg, originalIndex } = positionalEntries[i];
     const indexStr = String(i);
-    const negIndexStr = String(i - positionalArgs.length); // -1, -2, etc.
+    const negIndexStr = String(i - positionalEntries.length); // -1, -2, etc.
 
     // Determine permission for this position
     let perm = default_perm;
@@ -262,6 +273,11 @@ function checkPositionals(
 
     // Empty perm means no check
     if (perm.length === 0) {
+      continue;
+    }
+
+    // Skip path check for dynamic args (runtime-determined values)
+    if (cmd.dynamicIndices.has(originalIndex)) {
       continue;
     }
 
