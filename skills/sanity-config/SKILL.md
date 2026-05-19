@@ -19,10 +19,10 @@ Later configs append arrays and override scalars.
 
 ## Limitations
 
-The config format has four primitives:
+The config format has these primitives:
 - **Path permissions** — which files are safe to read/write
-- **Prefix matching** — which command names/subcommands trigger a rule
-- **Per-rule flags** — actions triggered by boolean flags like `-f`
+- **Command rules** — prefix matching plus mapping positional arguments and options to read/write permissions
+- **Per-rule flags** — actions triggered by specific argument tokens such as `-f`, `--force`, or even subcommands like `global`
 - **Pre-checks** — environment variable conditions
 
 If a request cannot be expressed with these four primitives, it is **unsupported**. Do not invent features. Be honest and suggest the closest practical alternative.
@@ -66,7 +66,7 @@ action = "deny"
 reason = "Generated files should not be modified"
 ```
 
-- `permissions.write` uses **deny-first** by default (safer than read)
+- The base policy for `permissions.write` is `deny` (safer than `permissions.read`'s default `allow`). Override rules still follow last-match-wins.
 - `action = "ask"` is usually better than `"deny"` for directories you might legitimately need to write to
 
 ### 3. Block a command entirely
@@ -87,7 +87,8 @@ reason = "System commands not permitted"
 [[commands.rules]]
 names = ["git push"]
 flags = [
-  { flag = "--force", action = "ask", reason = "Force push rewrites history" }
+  { flag = "--force", action = "ask", reason = "Force push rewrites history" },
+  { flag = "-f", action = "ask", reason = "Force push rewrites history" }
 ]
 ```
 
@@ -126,14 +127,15 @@ You do not need to add these — they are already configured:
 
 | Command | Behavior |
 |---------|----------|
-| `cat`, `head`, `grep`, etc. | Read positionals checked against `permissions.read` |
+| `cat`, `head`, `tail`, `grep`, etc. | Read positionals checked against `permissions.read` |
+| `sed` | Read positionals checked; in-place edits (`-i`) are **not** caught by the built-in default — add a flag rule for `-i` if needed |
 | `cp` | Sources read, destination write |
 | `mv` | Sources read+write, destination write |
 | `rm` | Delete checked against `permissions.write` |
 | `dd` | Blocked (`deny`) |
 | `npm -g`, `yarn global` | Blocked (`deny`) |
-| `pip` outside venv | Blocked (`deny`) |
-| `git push --force` | Ask confirmation |
+| `pip` / `pip3` outside venv | Blocked (`deny`) |
+| `git push --force` / `-f` | Ask confirmation |
 | `winget`, `scoop`, `choco`, `flatpak` | Blocked (`deny`) |
 
 ---

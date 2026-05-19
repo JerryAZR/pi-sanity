@@ -26,7 +26,7 @@ Result: ask
 
 The command rule says **how to interpret** the command. The permission rule says **whether the file is safe**. Always configure both: first define what files are sensitive, then define what each command does.
 
-Commands that do **not** operate on files use the rule's `action` directly — no path permission lookup:
+Commands that do **not** operate on files rely entirely on the rule's `action`. Commands that do operate on files use the rule's `action` as a fallback when all path checks return `allow`:
 
 ```
 Command: shutdown -h now
@@ -135,7 +135,7 @@ The command is normalized as:
 normalized = command_name + " " + args.join(" ")
 ```
 
-A rule matches if `normalized` starts with **any** of the rule's `names`, **and** the character immediately after the matched prefix is either end-of-string or a space.
+A rule matches if `normalized` starts with **any** of the rule's `names`, **and** the character immediately after the matched prefix is either end-of-string or a space. **The empty-string prefix (`""`) is a special case that matches any command.**
 
 | `names` | `git status` | `git push origin` | `github` |
 |---------|-------------|-------------------|----------|
@@ -173,7 +173,7 @@ default = "allow"     # Fallback when no rule matches
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `default` | string | Yes | `"allow""` | Action when no rule matches |
+| `default` | string | Yes | `"allow"` | Action when no rule matches |
 
 ### Rule Schema
 
@@ -193,7 +193,7 @@ pre_checks = [{ env = "VIRTUAL_ENV", match = "", action = "deny" }]
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `names` | string[] | Yes | One or more prefixes to match against the normalized command. A rule matches if **any** prefix matches. |
-| `action` | string | No | `"allow"`, `"ask"`, or `"deny"`. Defaults to `[commands].default` when omitted. Only needed when the rule has no `positionals`/`options`/`flags`/`pre_checks`, or when you want a different fallback than the global default. |
+| `action` | string | No | `"allow"`, `"ask"`, or `"deny"`. Fallback action for this rule when all other checks return `allow` (or when no other checks are declared). Defaults to `[commands].default` when omitted. |
 | `reason` | string | No | Explanation shown to user in ask dialog, and to agent on block. Has no effect when action is `"allow"`. Use it to guide agents away from undesired alternatives. |
 | `positionals` | inline table | No | Which positional args are file paths |
 | `options` | inline table | No | Option flags that take values |
@@ -222,7 +222,7 @@ positionals = {
 | `default_perm` | string[] | Yes | `["read"]`, `["write"]`, `["read", "write"]` (strictest wins), or `[]` (no check) |
 | `overrides` | map | No | Index (string) → string[] permission. `"0"` = first positional after matched prefix, `"-1"` = last |
 
-Indices count from the **first positional after the matched prefix**.
+Indices count from the **first positional after the matched prefix**. Tokens declared in `options` or `flags` are skipped; remaining bare tokens (not starting with `-`, not consumed as option values) are treated as positionals.
 
 **Permission values:** `["read"]` checks `permissions.read`, `["write"]` checks `permissions.write`, `["read", "write"]` checks both (strictest wins), `[]` skips the check. Deletion is a write operation — use `["write"]` for paths that will be deleted.
 
@@ -460,10 +460,10 @@ positionals = { default_perm = ["read"], overrides = { "-1" = ["write"] } }
 names = ["mv"]
 positionals = { default_perm = ["read", "write"], overrides = { "-1" = ["write"] } }
 
-# gcc/clang: compile sources, write output
+# gcc/clang: compile sources (read), output via -o (write)
 [[commands.rules]]
 names = ["gcc", "clang"]
-positionals = { default_perm = ["read"], overrides = { "-1" = ["write"] } }
+positionals = { default_perm = ["read"] }
 options = { "-o" = ["write"], "-I" = ["read"], "-L" = ["read"] }
 
 # sed: dangerous with -i
