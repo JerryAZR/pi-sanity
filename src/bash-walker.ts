@@ -37,6 +37,10 @@ export interface WalkResult {
 export interface FoundCommand {
   name?: string;
   args: string[];
+  /** Arguments that contain command substitutions, parameter expansions, or other dynamic content.
+   * These are NOT checked as paths because their value is determined at runtime.
+   * The substituted commands themselves are checked separately (they appear as inner commands). */
+  dynamicArgs: string[];
   redirects: FoundRedirect[];
 }
 
@@ -69,6 +73,7 @@ export function walkBash(command: string): WalkResult {
           commands.push({
             name: undefined,
             args: [],
+            dynamicArgs: [],
             redirects: stmtRedirects,
           });
         }
@@ -127,9 +132,19 @@ export function walkBash(command: string): WalkResult {
         // Skip only if the command is ENTIRELY a dynamic substitution with no other parts
         // e.g., $(echo $(rm /)) - skip, but $(echo rm) file - keep
         if (cmd.name?.text && !(isEntirelyDynamicName && !hasOtherParts)) {
+          const args: string[] = [];
+          const dynamicArgs: string[] = [];
+          for (const w of cmd.suffix ?? []) {
+            if (isDynamicWord(w)) {
+              dynamicArgs.push(w.text);
+            } else {
+              args.push(w.text);
+            }
+          }
           commands.push({
             name: cmd.name?.text,
-            args: cmd.suffix?.map((w: Word) => w.text) ?? [],
+            args,
+            dynamicArgs,
             redirects: cmdRedirects,
           });
         }
@@ -493,6 +508,30 @@ export function walkBash(command: string): WalkResult {
 
   walk(ast);
   return { commands, errors: ast.errors };
+}
+
+/**
+ * Check if a Word contains dynamic content that cannot be statically evaluated.
+ * Dynamic words include: command substitutions $(...), process substitutions <(...),
+ * parameter expansions $VAR/${...}, arithmetic expansions $((...)),
+ * brace expansions {a,b}, and extended globs.
+ */
+function isDynamicWord(word: Word): boolean {
+  if (!word.parts || word.parts.length === 0) return false;
+  return word.parts.some((part) => {
+    switch (part.type) {
+      case "CommandExpansion":
+      case "ProcessSubstitution":
+      case "SimpleExpansion":
+      case "ParameterExpansion":
+      case "ArithmeticExpansion":
+      case "BraceExpansion":
+      case "ExtendedGlob":
+        return true;
+      default:
+        return false;
+    }
+  });
 }
 
 function extractRedirects(redirects: Redirect[] | undefined): FoundRedirect[] {

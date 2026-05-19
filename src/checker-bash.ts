@@ -14,7 +14,6 @@ import { walkBash, type FoundCommand } from "./bash-walker.js";
 import {
   checkRead,
   checkWrite,
-  checkDelete,
   getDefaultContext,
 } from "./path-permission.js";
 import { evaluatePreChecks } from "./pre-check.js";
@@ -22,6 +21,44 @@ import { getCommandConfig } from "./config-loader.js";
 import { clearlyNotAPath } from "./path-utils.js";
 import type { SanityConfig, CommandConfig, Action } from "./config-types.js";
 import type { CheckResult } from "./types.js";
+
+/**
+ * Check if a flag is present in command arguments.
+ * Handles combined short flags (e.g., -rf contains -f) and exact matches.
+ * Long flags (--force) require exact match only.
+ */
+function hasFlag(args: string[], flag: string): boolean {
+  if (flag.startsWith("--")) {
+    return args.includes(flag);
+  }
+  if (flag.startsWith("-") && flag.length === 2) {
+    const flagChar = flag[1];
+    return args.some(
+      (arg) => arg.startsWith("-") && !arg.startsWith("--") && arg.includes(flagChar),
+    );
+  }
+  return args.includes(flag);
+}
+
+/**
+ * Get the value of an option from command arguments.
+ * Handles both `-o value` and `-o=value` forms.
+ * Returns undefined if the option is not found.
+ */
+function getOptionValue(args: string[], option: string): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    // Check -o=value form
+    if (arg.startsWith(`${option}=`)) {
+      return arg.slice(option.length + 1);
+    }
+    // Check -o value form
+    if (arg === option) {
+      return args[i + 1];
+    }
+  }
+  return undefined;
+}
 
 /**
  * Action priority for comparison (higher = stricter)
@@ -117,8 +154,8 @@ function checkSingleCommand(
 
   // 2. Check flags
   if (cmdConfig?.flags) {
-    for (const [flag, flagConfig] of Object.entries(cmdConfig.flags)) {
-      if (cmd.args.includes(flag)) {
+    for (const flagConfig of cmdConfig.flags) {
+      if (hasFlag(cmd.args, flagConfig.flag)) {
         results.push({
           action: flagConfig.action,
           reason: flagConfig.reason,
@@ -131,6 +168,14 @@ function checkSingleCommand(
   const positionalResults = checkPositionals(cmd, config, cmdConfig);
   results.push(...positionalResults);
 
+  // 4. Dynamic args can't be statically checked — ask if the rule has positionals
+  if (cmd.dynamicArgs.length > 0 && cmdConfig?.positionals) {
+    results.push({
+      action: "ask",
+      reason: "Command contains dynamic arguments (substitutions or expansions) that cannot be statically checked",
+    });
+  }
+
   // 4. Check redirects
   const redirectResults = checkRedirects(cmd, config);
   results.push(...redirectResults);
@@ -139,7 +184,7 @@ function checkSingleCommand(
   if (results.length === 0) {
     if (cmdConfig) {
       return {
-        action: cmdConfig.default_action,
+        action: cmdConfig.default_action ?? "allow",
         reason: cmdConfig.reason,
       };
     }
@@ -224,13 +269,12 @@ function checkPositionals(
     }
 
     // Empty perm means no check
-    if (!perm) {
+    if (perm.length === 0) {
       continue;
     }
 
-    // Check the path with specified permission(s)
-    const perms = perm.split(",").map((p) => p.trim());
-    for (const p of perms) {
+    // Check the path with each specified permission
+    for (const p of perm) {
       const checkResult = checkPathWithPermission(arg, p, config);
       if (checkResult.action !== "allow") {
         results.push(checkResult);
@@ -240,13 +284,12 @@ function checkPositionals(
 
   // Check option values
   if (cmdConfig.options) {
-    for (let i = 0; i < args.length; i++) {
-      const arg = args[i];
-      if (arg in cmdConfig.options) {
-        const perm = cmdConfig.options[arg];
-        const value = args[i + 1];
-        if (value && !value.startsWith("-")) {
-          const checkResult = checkPathWithPermission(value, perm, config);
+    for (const optionKey of Object.keys(cmdConfig.options)) {
+      const value = getOptionValue(args, optionKey);
+      if (value && !value.startsWith("-")) {
+        const perm = cmdConfig.options[optionKey];
+        for (const p of perm) {
+          const checkResult = checkPathWithPermission(value, p, config);
           if (checkResult.action !== "allow") {
             results.push(checkResult);
           }
@@ -284,7 +327,8 @@ function checkPathWithPermission(
       return { action: result.action, reason: result.reason };
     }
     case "delete": {
-      const result = checkDelete(path, config, ctx);
+      // Deletion is a write operation (modifies parent directory)
+      const result = checkWrite(path, config, ctx);
       return { action: result.action, reason: result.reason };
     }
     default:

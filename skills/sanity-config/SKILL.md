@@ -94,6 +94,7 @@ flags = [
 
 - If the flag is not present, the rule does nothing (falls back to `[commands].default`)
 - Both `-f` and `--force` must be listed separately if both forms are used
+- Combined short flags are detected: `-f` matches inside `-rf`
 
 ### 5. Teach a new command about its file arguments
 
