@@ -90,11 +90,12 @@ function filterValidOverrides(
  * Parse TOML commands section into CommandsConfig.
  * Handles [[commands.rules]] array format.
  */
-function parseCommands(tomlCommands: any): { default_action: string; reason?: string; rules: Rule[] } {
+function parseCommands(tomlCommands: any): { default_action: string; reason?: string; rules: Rule[]; clear_rules?: boolean } {
   const result = {
     default_action: tomlCommands?.default ?? tomlCommands?.default_action ?? "allow",
     reason: tomlCommands?.reason,
     rules: [] as Rule[],
+    clear_rules: false,
   };
 
   // Detect old format [commands.NAME]
@@ -121,6 +122,7 @@ function parseCommands(tomlCommands: any): { default_action: string; reason?: st
       result.rules = []; // clear all previous rules
       result.default_action = raw.action ?? result.default_action;
       result.reason = raw.reason ?? result.reason;
+      result.clear_rules = true;
       continue;
     }
 
@@ -176,6 +178,7 @@ export function loadConfigFromString(tomlContent: string, onWarning?: WarningSin
       default_action: commands.default_action as any,
       reason: commands.reason,
       rules: commands.rules,
+      clear_rules: commands.clear_rules,
     },
     ask_timeout: parsed.ask_timeout,
   };
@@ -213,6 +216,7 @@ export function loadDefaultConfig(onWarning?: WarningSink): SanityConfig {
       default_action: commands.default_action as any,
       reason: commands.reason,
       rules: commands.rules,
+      clear_rules: commands.clear_rules,
     },
     ask_timeout: parsed.ask_timeout,
   };
@@ -279,13 +283,20 @@ export function mergeConfigs(base: SanityConfig, override: SanityConfig): Sanity
     ask_timeout: override.ask_timeout ?? base.ask_timeout,
   };
 
-  // Offset override priorities so they always win over base
-  const offset = base.commands.rules.length;
-  for (const rule of base.commands.rules) {
-    result.commands.rules.push(rule);
-  }
-  for (const rule of override.commands.rules) {
-    result.commands.rules.push({ ...rule, priority: rule.priority + offset });
+  // If override came from a catch-all (names = [""]), discard base rules entirely
+  if (!override.commands.clear_rules) {
+    const offset = base.commands.rules.length;
+    for (const rule of base.commands.rules) {
+      result.commands.rules.push(rule);
+    }
+    for (const rule of override.commands.rules) {
+      result.commands.rules.push({ ...rule, priority: rule.priority + offset });
+    }
+  } else {
+    // Catch-all: only override rules (re-prioritized from 0)
+    for (const rule of override.commands.rules) {
+      result.commands.rules.push({ ...rule, priority: rule.priority });
+    }
   }
 
   // Sort descending by priority (highest first = last-match-wins)

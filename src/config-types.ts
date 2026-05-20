@@ -76,6 +76,8 @@ export interface CommandsConfig {
   default_action: Action;
   reason?: string;
   rules: Rule[];
+  /** If true, this config was produced from a catch-all (names=[""]) and should discard inherited rules when merged. */
+  clear_rules?: boolean;
 }
 
 export interface PermissionsConfig {

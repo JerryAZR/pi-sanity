@@ -11,9 +11,10 @@
  * - Exact flag match (standalone --force, -f)
  * - Combined short flags (-rf contains -r and -f)
  * - Option with space separator (-o value)
- * - Option with equals separator (-o=value)
+ * - Option with equals separator (-o=value, --option=value)
  * - Combined short string containing option (-xzf → -f consumes next arg)
  * - Declared multi-char flags are atomic (-Wall not decomposed)
+ * - End-of-options marker (--): remaining tokens treated as positionals
  * - Dynamic args are tracked but still participate in positional counting
  */
 
@@ -60,20 +61,28 @@ export function parseArgs(
       continue;
     }
 
-    // 2. Exact declared flag match
+    // 2. End-of-options marker: everything after -- is positional
+    if (arg === "--") {
+      for (let j = i + 1; j < args.length; j++) {
+        result.positionals.push({ value: args[j], originalIndex: j });
+      }
+      break;
+    }
+
+    // 3. Exact declared flag match
     if (declaredFlags.has(arg)) {
       result.flags.add(arg);
       continue;
     }
 
-    // 3. Exact declared option match
+    // 4. Exact declared option match
     if (declaredOptions.has(arg)) {
       pendingOption = arg;
       continue;
     }
 
-    // 4. -o=value form
-    if (arg.startsWith("-") && !arg.startsWith("--") && arg.includes("=")) {
+    // 5. -o=value and --option=value forms
+    if (arg.startsWith("-") && arg.includes("=")) {
       const eqIdx = arg.indexOf("=");
       const key = arg.slice(0, eqIdx);
       const value = arg.slice(eqIdx + 1);
@@ -81,16 +90,22 @@ export function parseArgs(
         result.options.set(key, { value, originalIndex: i });
         continue;
       }
-      // If key is not a declared option, fall through to combined-short handling
+      // If key is not a declared option, fall through:
+      // - short form may be combined-short (-xzf) handled below
+      // - long form is unknown, skip
+      if (arg.startsWith("--")) {
+        continue;
+      }
+      // short form with = but unknown option: fall through to combined-short
     }
 
-    // 5. Long flag/option (unknown)
+    // 6. Long flag/option (unknown)
     if (arg.startsWith("--")) {
       // Unknown long option/flag — skip
       continue;
     }
 
-    // 6. Combined short string (-xzf)
+    // 7. Combined short string (-xzf)
     if (arg.startsWith("-") && !arg.startsWith("--") && arg.length > 2) {
       // If it's a declared multi-char flag, it's atomic
       if (declaredFlags.has(arg)) {
@@ -128,12 +143,12 @@ export function parseArgs(
       continue;
     }
 
-    // 7. Single-dash unknown (-x)
+    // 8. Single-dash unknown (-x)
     if (arg.startsWith("-")) {
       continue;
     }
 
-    // 8. Positional
+    // 9. Positional
     result.positionals.push({ value: arg, originalIndex: i });
   }
 

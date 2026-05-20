@@ -118,10 +118,9 @@ flags = [
 
 # yarn: deny global installs
 [[commands.rules]]
-names = ["yarn"]
-flags = [
-  { flag = "global", action = "deny", reason = "Use project-local installs instead of global" }
-]
+names = ["yarn global"]
+action = "deny"
+reason = "Use project-local installs instead of global"
 
 # pip/pip3: require virtual environment
 [[commands.rules]]

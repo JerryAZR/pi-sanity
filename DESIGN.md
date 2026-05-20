@@ -147,6 +147,12 @@ Left-to-right scan. For each token, in priority order:
 
 A token is classified as **exactly one** of: option, flag, or positional. No ambiguity. This prevents the `-f` flag + `-fo` option bug where both match the same token.
 
+### Known limitations
+
+- **`--` end-of-options**: Supported — everything after `--` is treated as positional.
+- **Bare `-` as filename**: A bare `-` token is skipped (treated as unknown flag-like). Filenames starting with `-` should be passed after `--` (e.g., `rm -- -file`).
+- **`{{CWD}}` frozen at load time**: `process.cwd()` is captured when the config is loaded. If the working directory changes without a config reload, path patterns using `{{CWD}}` may be stale. If `cwd` is the filesystem root (`/`), `{{CWD}}/**` preprocesses to `/**`, which picomatch interprets as matching all absolute paths.
+
 ### Test boundary
 
 **Unit tests for `parseArgs` only** (`tests/unit/bash/arg-parser.test.ts`):
@@ -236,8 +242,13 @@ function checkSingleCommand(cmd: FoundCommand, config: SanityConfig): CheckResul
     return { action: rule.action, reason: rule.reason };
   }
 
-  const strictest = Math.max(...results.map(r => r.action)) as Action;
-  return { action: strictest, reason: collectReasons(results) };
+  let strictest: Action = "allow";
+  const reasons: string[] = [];
+  for (const r of results) {
+    strictest = stricterAction(strictest, r.action);
+    if (r.reason) reasons.push(r.reason);
+  }
+  return { action: strictest, reason: reasons.join("; ") };
 }
 ```
 
@@ -320,7 +331,7 @@ function mergeConfigs(base: SanityConfig, override: SanityConfig): SanityConfig 
 }
 ```
 
-Note: `names = [""]` in override config clears rules and updates defaults at **parse time** in the override config. So the override config's `rules` array is already empty when merged. The base rules survive, and override rules (if any, after a non-catch-all) are appended with offset.
+Note: `names = [""]` in an override config sets `clear_rules: true` on the override's `CommandsConfig`. During `mergeConfigs`, if `override.commands.clear_rules` is true, base rules are discarded entirely and only override rules are kept. This makes `names = [""]` effective across config layers, not just within a single file.
 
 ### Test boundary
 

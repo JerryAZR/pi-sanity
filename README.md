@@ -44,7 +44,8 @@ Out of the box, Pi-Sanity provides sensible defaults:
 |-----------|---------|----------------|-----------------|------------|
 | **Read** | Allow | Ask for credential files | Allow | Allow |
 | **Write** | Deny | Ask | Allow | Allow |
-| **Delete** | Deny | Ask | Allow | Allow |
+
+Deletion is checked against **write** permissions (deleting a file modifies its parent directory). There is no separate `permissions.delete` section. |
 
 ### Command Rules
 
@@ -130,10 +131,7 @@ For automated environments, be more permissive:
 [permissions.write]
 default = "allow"
 
-[permissions.delete]
-default = "allow"
-
-[[permissions.delete.overrides]]
+[[permissions.write.overrides]]
 path = ["{{HOME}}/.ssh/**", "{{HOME}}/.aws/**"]
 action = "deny"
 reason = "Never delete credential files"
@@ -143,7 +141,7 @@ reason = "Never delete credential files"
 
 See [CONFIG.md](CONFIG.md) for complete documentation of:
 
-- Permission sections (read, write, delete)
+- Permission sections (read, write)
 - Path patterns and variable expansion
 - Command rules and flag restrictions
 - Environment pre-checks

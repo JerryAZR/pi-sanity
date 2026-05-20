@@ -22,7 +22,7 @@ Later configs append arrays and override scalars.
 The config format has these primitives:
 - **Path permissions** — which files are safe to read/write
 - **Command rules** — prefix matching plus mapping positional arguments and options to read/write permissions
-- **Per-rule flags** — actions triggered by specific argument tokens such as `-f`, `--force`, or even subcommands like `global`
+- **Per-rule flags** — actions triggered by specific argument tokens such as `-f`, `--force`
 - **Pre-checks** — environment variable conditions
 
 If a request cannot be expressed with these four primitives, it is **unsupported**. Do not invent features. Be honest and suggest the closest practical alternative.

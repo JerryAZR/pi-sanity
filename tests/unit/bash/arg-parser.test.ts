@@ -78,6 +78,13 @@ describe("arg-parser", () => {
       assert.strictEqual(result.options.get("-o")?.originalIndex, 0);
     });
 
+    it("should extract long option with equals separator", () => {
+      const config = makeConfig({ options: { "--target-directory": ["write"] } });
+      const result = parseArgs(["--target-directory=/foo"], config, new Set());
+      assert.strictEqual(result.options.get("--target-directory")?.value, "/foo");
+      assert.strictEqual(result.options.get("--target-directory")?.originalIndex, 0);
+    });
+
     it("should consume option value and not count as positional", () => {
       const config = makeConfig({
         options: { "-o": ["write"] },
@@ -210,6 +217,20 @@ describe("arg-parser", () => {
       const result = parseArgs(["--unknown", "/pos"], config, new Set());
       assert.strictEqual(result.positionals.length, 1);
       assert.strictEqual(result.positionals[0].value, "/pos");
+    });
+
+    it("should treat everything after -- as positional", () => {
+      const config = makeConfig({
+        flags: [{ flag: "-f", action: "deny" }],
+        positionals: { default_perm: ["read"] },
+      });
+      // Note: parseArgs receives cmd.args (without command name), so we test
+      // the args portion only.
+      const result = parseArgs(["--", "-f", "file.txt"], config, new Set());
+      assert.ok(!result.flags.has("-f"), "-f after -- should NOT be detected as flag");
+      assert.strictEqual(result.positionals.length, 2);
+      assert.strictEqual(result.positionals[0].value, "-f");
+      assert.strictEqual(result.positionals[1].value, "file.txt");
     });
   });
 });

@@ -8,29 +8,29 @@ describe("special files scenarios", () => {
   describe("/dev/null redirections", () => {
     it("should allow stderr redirection to /dev/null", () => {
       const result = checkBash("rm -f test.txt 2>/dev/null", config);
-      assert.ok(result.action !== "deny" || !result.reason?.includes("outside allowed"));
+      assert.strictEqual(result.action, "allow");
     });
 
     it("should allow stdout redirection to /dev/null", () => {
       const result = checkBash("echo 'test' >/dev/null", config);
-      assert.ok(result.action !== "deny" || !result.reason?.includes("outside allowed"));
+      assert.strictEqual(result.action, "allow");
     });
 
     it("should allow both stdout and stderr to /dev/null", () => {
       const result = checkBash("some_command >/dev/null 2>&1", config);
-      assert.ok(result.action !== "deny" || !result.reason?.includes("outside allowed"));
+      assert.strictEqual(result.action, "allow");
     });
   });
 
   describe("/dev/stdout and /dev/stderr", () => {
     it("should allow redirect to /dev/stdout", () => {
       const result = checkBash("echo test >/dev/stdout", config);
-      assert.ok(result.action !== "deny" || !result.reason?.includes("outside allowed"));
+      assert.strictEqual(result.action, "allow");
     });
 
     it("should allow redirect to /dev/stderr", () => {
       const result = checkBash("echo error >/dev/stderr", config);
-      assert.ok(result.action !== "deny" || !result.reason?.includes("outside allowed"));
+      assert.strictEqual(result.action, "allow");
     });
   });
 
