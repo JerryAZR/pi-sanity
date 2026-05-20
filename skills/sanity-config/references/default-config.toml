@@ -86,6 +86,17 @@ reason = "Unknown commands default to allow (low-friction)"
 names = ["cat", "head", "tail", "less", "more", "grep", "awk", "sed", "cut", "sort", "uniq", "wc"]
 positionals = { default_perm = ["read"] }
 
+# sed in-place editing: ask before modifying files
+# This rule overrides the general sed entry above because it comes later
+# (last-match-wins). When -i is not present, positionals are still checked
+# as read paths, preserving the same behavior as the general rule.
+[[commands.rules]]
+names = ["sed"]
+positionals = { default_perm = ["read"] }
+flags = [
+  { flag = "-i", action = "ask", reason = "In-place editing modifies files" }
+]
+
 # cp: read sources, write destination
 [[commands.rules]]
 names = ["cp"]
@@ -138,6 +149,14 @@ names = ["git push"]
 flags = [
   { flag = "--force", action = "ask", reason = "Force push rewrites history" },
   { flag = "-f", action = "ask", reason = "Force push rewrites history" }
+]
+
+# git clean --force: ask before removing untracked files
+[[commands.rules]]
+names = ["git clean"]
+flags = [
+  { flag = "-f", action = "ask", reason = "Removes untracked files" },
+  { flag = "--force", action = "ask", reason = "Removes untracked files" }
 ]
 
 # User-level package managers: deny by default

@@ -130,7 +130,7 @@ You do not need to add these — they are already configured:
 | Command | Behavior |
 |---------|----------|
 | `cat`, `head`, `tail`, `grep`, etc. | Read positionals checked against `permissions.read` |
-| `sed` | Read positionals checked; in-place edits (`-i`) are **not** caught by the built-in default — add a flag rule for `-i` if needed |
+| `sed` | Read positionals checked; in-place edits (`-i`) ask for confirmation |
 | `cp` | Sources read, destination write |
 | `mv` | Sources read+write, destination write |
 | `rm` | Delete checked against `permissions.write` |
@@ -138,6 +138,7 @@ You do not need to add these — they are already configured:
 | `npm -g`, `yarn global` | Blocked (`deny`) |
 | `pip` / `pip3` outside venv | Blocked (`deny`) |
 | `git push --force` / `-f` | Ask confirmation |
+| `git clean --force` / `-f` | Ask confirmation (removes untracked files) |
 | `winget`, `scoop`, `choco`, `flatpak` | Blocked (`deny`) |
 
 ---

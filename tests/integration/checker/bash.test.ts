@@ -97,6 +97,40 @@ describe("checkBash with default config", () => {
     });
   });
 
+  describe("sed in-place editing", () => {
+    it("should ask for sed -i (in-place edit)", () => {
+      const result = checkBash("sed -i 's/foo/bar/' file.txt", config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should allow sed without -i (read-only)", () => {
+      const result = checkBash("sed 's/foo/bar/' file.txt", config);
+      assert.strictEqual(result.action, "allow");
+    });
+  });
+
+  describe("git clean", () => {
+    it("should ask for git clean -f", () => {
+      const result = checkBash("git clean -f", config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should ask for git clean --force", () => {
+      const result = checkBash("git clean --force", config);
+      assert.strictEqual(result.action, "ask");
+    });
+
+    it("should allow git clean without flags (harmless preview)", () => {
+      const result = checkBash("git clean", config);
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should allow git clean -n (dry run)", () => {
+      const result = checkBash("git clean -n", config);
+      assert.strictEqual(result.action, "allow");
+    });
+  });
+
   describe("redirections", () => {
     it("should allow redirect to /dev/null", () => {
       const result = checkBash("echo test >/dev/null", config);
