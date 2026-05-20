@@ -113,6 +113,33 @@ action = "ask"
     assert.strictEqual(config.commands.default_action, "deny");
   });
 
+  it("should treat mixed names with empty string as catch-all", () => {
+    const toml = `
+[commands]
+default = "allow"
+
+[[commands.rules]]
+names = ["cmd1", "cmd2"]
+action = "ask"
+
+[[commands.rules]]
+names = ["cmd1", "cmd2", "", "cmd3", "cmd4"]
+action = "deny"
+
+[[commands.rules]]
+names = ["cmd5"]
+action = "ask"
+`;
+    const config = loadConfigFromString(toml);
+
+    // Empty string in mixed names = catch-all: clears cmd1/cmd2 from first entry
+    // cmd5 survives because it comes after
+    assert.strictEqual(config.commands.rules.length, 1);
+    assert.strictEqual(config.commands.rules[0].name, "cmd5");
+    assert.strictEqual(config.commands.rules[0].action, "ask");
+    assert.strictEqual(config.commands.default_action, "deny");
+  });
+
   it("should throw ConfigParseError for old [commands.NAME] format", () => {
     const toml = `
 [commands.cp]

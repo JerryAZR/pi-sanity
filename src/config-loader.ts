@@ -203,14 +203,20 @@ function buildSanityConfig(raw: RawConfig, onWarning?: WarningSink): SanityConfi
       continue;
     }
 
-    // Catch-all: names = [""]
-    if (rawRule.names.length === 1 && rawRule.names[0] === "") {
+    // Catch-all: any empty string name means "match everything"
+    if (rawRule.names.includes("")) {
       catchAllSeen = true;
       if (rawRule.action !== undefined) {
         defaultAction = rawRule.action as any;
       }
       if (rawRule.reason !== undefined) {
         reason = rawRule.reason;
+      }
+      if (rawRule.names.length > 1 && onWarning) {
+        onWarning(
+          `[pi-sanity] Rule #${i} contains "" alongside other names. ` +
+          `Treating as catch-all; other names are ignored.`
+        );
       }
       continue;
     }
