@@ -113,7 +113,7 @@ action = "ask"
     assert.strictEqual(config.commands.default_action, "deny");
   });
 
-  it("should treat mixed names with empty string as catch-all", () => {
+  it("should warn and skip mixed names containing empty string", () => {
     const toml = `
 [commands]
 default = "allow"
@@ -130,14 +130,21 @@ action = "deny"
 names = ["cmd5"]
 action = "ask"
 `;
-    const config = loadConfigFromString(toml);
+    const warnings: string[] = [];
+    const config = loadConfigFromString(toml, (msg) => warnings.push(msg));
 
-    // Empty string in mixed names = catch-all: clears cmd1/cmd2 from first entry
-    // cmd5 survives because it comes after
-    assert.strictEqual(config.commands.rules.length, 1);
-    assert.strictEqual(config.commands.rules[0].name, "cmd5");
-    assert.strictEqual(config.commands.rules[0].action, "ask");
-    assert.strictEqual(config.commands.default_action, "deny");
+    // Mixed names entry is skipped — no catch-all, no rules created from it
+    // cmd1/cmd2 from first entry survive, cmd5 from last entry survives
+    assert.strictEqual(config.commands.rules.length, 3);
+    assert.ok(config.commands.rules.some((r) => r.name === "cmd1"));
+    assert.ok(config.commands.rules.some((r) => r.name === "cmd2"));
+    assert.ok(config.commands.rules.some((r) => r.name === "cmd5"));
+    assert.strictEqual(config.commands.default_action, "allow");
+
+    // Warning emitted
+    assert.strictEqual(warnings.length, 1);
+    assert.ok(warnings[0].includes('Skipping invalid rule'));
+    assert.ok(warnings[0].includes('must be the only element'));
   });
 
   it("should throw ConfigParseError for old [commands.NAME] format", () => {

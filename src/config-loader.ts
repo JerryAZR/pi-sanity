@@ -203,20 +203,23 @@ function buildSanityConfig(raw: RawConfig, onWarning?: WarningSink): SanityConfi
       continue;
     }
 
-    // Catch-all: any empty string name means "match everything"
+    // Reject mixed names arrays containing "" — user almost certainly made a mistake.
+    // Only exact names = [""] is valid catch-all syntax.
     if (rawRule.names.includes("")) {
-      catchAllSeen = true;
-      if (rawRule.action !== undefined) {
-        defaultAction = rawRule.action as any;
-      }
-      if (rawRule.reason !== undefined) {
-        reason = rawRule.reason;
-      }
-      if (rawRule.names.length > 1 && onWarning) {
-        onWarning(
-          `[pi-sanity] Rule #${i} contains "" alongside other names. ` +
-          `Treating as catch-all; other names are ignored.`
+      if (rawRule.names.length > 1) {
+        (onWarning ?? defaultSink)(
+          `[pi-sanity] Skipping invalid rule #${i}: "" must be the only element in names. ` +
+          `Use separate [[commands.rules]] entries for catch-all and named rules.`
         );
+      } else {
+        // Exact names = [""] → catch-all
+        catchAllSeen = true;
+        if (rawRule.action !== undefined) {
+          defaultAction = rawRule.action as any;
+        }
+        if (rawRule.reason !== undefined) {
+          reason = rawRule.reason;
+        }
       }
       continue;
     }
