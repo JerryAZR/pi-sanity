@@ -62,6 +62,18 @@ describe("checkBash with default config", () => {
       assert.strictEqual(result.action, "deny");
     });
 
+    it("should deny cp --target-directory=/etc/", () => {
+      const result = checkBash("cp --target-directory=/etc/ file.txt", config);
+      assert.strictEqual(result.action, "deny");
+    });
+
+    it("should allow cp with dynamic --target-directory (skipped from path check)", () => {
+      const result = checkBash("cp --target-directory=$(echo /etc/) file.txt", config);
+      // Dynamic option value is skipped; file.txt is checked as write (last positional)
+      // file.txt in CWD is allowed
+      assert.strictEqual(result.action, "allow");
+    });
+
     it("should allow mv in CWD", () => {
       const result = checkBash("mv file.txt archive/", config);
       assert.strictEqual(result.action, "allow");

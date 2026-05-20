@@ -58,12 +58,13 @@ export interface RuleConfig {
 export type CommandConfig = RuleConfig;
 
 /**
- * A single flattened rule with one name and a priority.
+ * A single flattened rule with one name.
  * Created from `[[commands.rules]]` entries at parse time.
+ * The rules array is ordered so that later source rules are checked first
+ * (last-match-wins via array order, no priority numbers needed).
  */
 export interface Rule {
   name: string;            // single prefix
-  priority: number;        // higher = later in config = wins over lower
   action: Action;          // fallback when no checks trigger
   reason?: string;
   config: RuleConfig;
@@ -76,8 +77,6 @@ export interface CommandsConfig {
   default_action: Action;
   reason?: string;
   rules: Rule[];
-  /** If true, this config was produced from a catch-all (names=[""]) and should discard inherited rules when merged. */
-  clear_rules?: boolean;
 }
 
 export interface PermissionsConfig {

@@ -1,6 +1,9 @@
 /**
  * Config loader for pi-sanity
  * Loads and merges TOML config files from multiple sources
+ *
+ * Design: Merge at raw TOML level, then build runtime config once.
+ * No runtime merging of SanityConfig objects.
  */
 
 import * as fs from "fs";
@@ -8,15 +11,10 @@ import * as path from "path";
 import * as os from "os";
 import { parse } from "smol-toml";
 import type {
-  CommandConfig,
-  FlagConfig,
-  PermissionSection,
-  PositionalConfig,
   Rule,
   RuleConfig,
   SanityConfig,
 } from "./config-types.js";
-import { createEmptyConfig } from "./config-types.js";
 import { DEFAULT_CONFIG_CONTENT } from "./generated/default-config.js";
 import {
   preprocessConfigPattern,
@@ -30,9 +28,6 @@ function defaultSink(msg: string): void {
   console.warn(msg);
 }
 
-/**
- * Create a PathContext for config preprocessing
- */
 function createConfigContext(): PathContext {
   return {
     cwd: process.cwd(),
@@ -42,15 +37,16 @@ function createConfigContext(): PathContext {
   };
 }
 
-/**
- * Preprocess all path patterns in a config.
- */
 function preprocessConfigPatterns(config: SanityConfig, onWarning?: WarningSink): void {
   const sink = onWarning ?? defaultSink;
   const ctx = createConfigContext();
 
-  config.permissions.read.overrides = filterValidOverrides(config.permissions.read.overrides, "read", ctx, sink);
-  config.permissions.write.overrides = filterValidOverrides(config.permissions.write.overrides, "write", ctx, sink);
+  config.permissions.read.overrides = filterValidOverrides(
+    config.permissions.read.overrides, "read", ctx, sink,
+  );
+  config.permissions.write.overrides = filterValidOverrides(
+    config.permissions.write.overrides, "write", ctx, sink,
+  );
 }
 
 function filterValidOverrides(
@@ -86,68 +82,92 @@ function filterValidOverrides(
   return valid;
 }
 
-/**
- * Parse TOML commands section into CommandsConfig.
- * Handles [[commands.rules]] array format.
- */
-function parseCommands(tomlCommands: any): { default_action: string; reason?: string; rules: Rule[]; clear_rules?: boolean } {
-  const result = {
-    default_action: tomlCommands?.default ?? tomlCommands?.default_action ?? "allow",
-    reason: tomlCommands?.reason,
-    rules: [] as Rule[],
-    clear_rules: false,
-  };
+// ─────────────────────────────────────────────────────────────────────────────
+// Raw config representation (before building SanityConfig)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // Detect old format [commands.NAME]
-  const knownKeys = new Set(["default", "default_action", "reason", "rules"]);
-  for (const key of Object.keys(tomlCommands ?? {})) {
-    if (!knownKeys.has(key)) {
-      throw new ConfigParseError(
-        `Config uses old command rule format: [commands.${key}]. ` +
-        `Please migrate to the new [[commands.rules]] format. ` +
-        `Use /skill:sanity-config for assistance.`
-      );
-    }
-  }
-
-  const rawRules = tomlCommands?.rules;
-  if (!Array.isArray(rawRules)) return result;
-
-  for (let i = 0; i < rawRules.length; i++) {
-    const raw = rawRules[i];
-    if (!raw || !Array.isArray(raw.names) || raw.names.length === 0) continue;
-
-    // Catch-all: names = [""]
-    if (raw.names.length === 1 && raw.names[0] === "") {
-      result.rules = []; // clear all previous rules
-      result.default_action = raw.action ?? result.default_action;
-      result.reason = raw.reason ?? result.reason;
-      result.clear_rules = true;
-      continue;
-    }
-
-    const ruleConfig: RuleConfig = {
-      reason: raw.reason,
-      pre_checks: raw.pre_checks,
-      positionals: raw.positionals,
-      options: raw.options,
-      flags: raw.flags,
-    };
-
-    // Flatten names: one rule per name, sharing the same config
-    for (const name of raw.names) {
-      result.rules.push({
-        name,
-        priority: i,
-        action: raw.action ?? result.default_action,
-        reason: raw.reason,
-        config: ruleConfig,
-      });
-    }
-  }
-
-  return result;
+interface RawPermissionSection {
+  default?: string;
+  reason?: string;
+  overrides: any[];
 }
+
+interface RawCommands {
+  default?: string;
+  default_action?: string;
+  reason?: string;
+  rules: any[];
+}
+
+interface RawConfig {
+  permissions: {
+    read: RawPermissionSection;
+    write: RawPermissionSection;
+  };
+  commands: RawCommands;
+  ask_timeout?: number;
+}
+
+function emptyRawConfig(): RawConfig {
+  return {
+    permissions: {
+      read: { overrides: [] },
+      write: { overrides: [] },
+    },
+    commands: { rules: [] },
+  };
+}
+
+function parseRawConfig(tomlContent: string): RawConfig {
+  const parsed = parse(tomlContent) as any;
+  return {
+    permissions: {
+      read: {
+        default: parsed.permissions?.read?.default,
+        reason: parsed.permissions?.read?.reason,
+        overrides: parsed.permissions?.read?.overrides ?? [],
+      },
+      write: {
+        default: parsed.permissions?.write?.default,
+        reason: parsed.permissions?.write?.reason,
+        overrides: parsed.permissions?.write?.overrides ?? [],
+      },
+    },
+    commands: {
+      ...(parsed.commands ?? {}),
+      rules: parsed.commands?.rules ?? [],
+    },
+    ask_timeout: parsed.ask_timeout,
+  };
+}
+
+function mergeRawConfigs(base: RawConfig, override: RawConfig): RawConfig {
+  return {
+    permissions: {
+      read: {
+        default: override.permissions.read.default ?? base.permissions.read.default,
+        reason: override.permissions.read.reason ?? base.permissions.read.reason,
+        overrides: [...base.permissions.read.overrides, ...override.permissions.read.overrides],
+      },
+      write: {
+        default: override.permissions.write.default ?? base.permissions.write.default,
+        reason: override.permissions.write.reason ?? base.permissions.write.reason,
+        overrides: [...base.permissions.write.overrides, ...override.permissions.write.overrides],
+      },
+    },
+    commands: {
+      default: override.commands.default ?? override.commands.default_action
+        ?? base.commands.default ?? base.commands.default_action,
+      reason: override.commands.reason ?? base.commands.reason,
+      rules: [...base.commands.rules, ...override.commands.rules],
+    },
+    ask_timeout: override.ask_timeout ?? base.ask_timeout,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Runtime config builder
+// ─────────────────────────────────────────────────────────────────────────────
 
 export class ConfigParseError extends Error {
   constructor(message: string) {
@@ -156,90 +176,122 @@ export class ConfigParseError extends Error {
   }
 }
 
-/**
- * Load a TOML config from a string.
- */
+function buildSanityConfig(raw: RawConfig, onWarning?: WarningSink): SanityConfig {
+  // Detect old format [commands.NAME]
+  for (const key of Object.keys(raw.commands)) {
+    if (!["default", "default_action", "reason", "rules"].includes(key)) {
+      throw new ConfigParseError(
+        `Config uses old command rule format: [commands.${key}]. ` +
+        `Please migrate to the new [[commands.rules]] format. ` +
+        `Use /skill:sanity-config for assistance.`
+      );
+    }
+  }
+
+  // Parse commands.rules backwards.
+  // Later rules in the source array win over earlier ones.
+  // A catch-all (names = [""]) discards all rules that came before it
+  // and may change the default action for rules after it.
+  const rules: Rule[] = [];
+  let catchAllSeen = false;
+  let defaultAction = (raw.commands.default ?? "allow") as any;
+  let reason = raw.commands.reason;
+
+  for (let i = raw.commands.rules.length - 1; i >= 0; i--) {
+    const rawRule = raw.commands.rules[i];
+    if (!rawRule || !Array.isArray(rawRule.names) || rawRule.names.length === 0) {
+      continue;
+    }
+
+    // Catch-all: names = [""]
+    if (rawRule.names.length === 1 && rawRule.names[0] === "") {
+      catchAllSeen = true;
+      if (rawRule.action !== undefined) {
+        defaultAction = rawRule.action as any;
+      }
+      if (rawRule.reason !== undefined) {
+        reason = rawRule.reason;
+      }
+      continue;
+    }
+
+    // Rules before the catch-all are discarded
+    if (catchAllSeen) {
+      continue;
+    }
+
+    const ruleConfig: RuleConfig = {
+      reason: rawRule.reason,
+      pre_checks: rawRule.pre_checks,
+      positionals: rawRule.positionals,
+      options: rawRule.options,
+      flags: rawRule.flags,
+    };
+
+    for (const name of rawRule.names) {
+      rules.push({
+        name,
+        action: (rawRule.action ?? defaultAction) as any,
+        reason: rawRule.reason,
+        config: ruleConfig,
+      });
+    }
+  }
+
+  // Rules are already in check order: later source rules first
+  // (backwards parsing pushes later rules first, then earlier rules)
+
+  const config: SanityConfig = {
+    permissions: {
+      read: {
+        default: (raw.permissions.read.default ?? "allow") as any,
+        reason: raw.permissions.read.reason,
+        overrides: raw.permissions.read.overrides,
+      },
+      write: {
+        default: (raw.permissions.write.default ?? "allow") as any,
+        reason: raw.permissions.write.reason,
+        overrides: raw.permissions.write.overrides,
+      },
+    },
+    commands: {
+      default_action: defaultAction,
+      reason,
+      rules,
+    },
+    ask_timeout: raw.ask_timeout,
+  };
+
+  preprocessConfigPatterns(config, onWarning);
+  return config;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function loadConfigFromString(tomlContent: string, onWarning?: WarningSink): SanityConfig {
-  const parsed = parse(tomlContent) as any;
-  const commands = parseCommands(parsed.commands);
-
-  const config: SanityConfig = {
-    permissions: {
-      read: mergePermissionSection(
-        { default: "allow", overrides: [] },
-        parsed.permissions?.read ?? {},
-      ),
-      write: mergePermissionSection(
-        { default: "allow", overrides: [] },
-        parsed.permissions?.write ?? {},
-      ),
-    },
-    commands: {
-      default_action: commands.default_action as any,
-      reason: commands.reason,
-      rules: commands.rules,
-      clear_rules: commands.clear_rules,
-    },
-    ask_timeout: parsed.ask_timeout,
-  };
-
-  preprocessConfigPatterns(config, onWarning);
-  return config;
+  const raw = parseRawConfig(tomlContent);
+  return buildSanityConfig(raw, onWarning);
 }
 
-/**
- * Load the embedded default config.
- */
-function loadEmbeddedDefaultConfig(): any {
-  return parse(DEFAULT_CONFIG_CONTENT);
-}
-
-/**
- * Load only the built-in default configuration.
- */
 export function loadDefaultConfig(onWarning?: WarningSink): SanityConfig {
-  const parsed = loadEmbeddedDefaultConfig();
-  const commands = parseCommands(parsed.commands);
-
-  const config: SanityConfig = {
-    permissions: {
-      read: mergePermissionSection(
-        { default: "allow", overrides: [] },
-        parsed.permissions?.read ?? {},
-      ),
-      write: mergePermissionSection(
-        { default: "allow", overrides: [] },
-        parsed.permissions?.write ?? {},
-      ),
-    },
-    commands: {
-      default_action: commands.default_action as any,
-      reason: commands.reason,
-      rules: commands.rules,
-      clear_rules: commands.clear_rules,
-    },
-    ask_timeout: parsed.ask_timeout,
-  };
-
-  preprocessConfigPatterns(config, onWarning);
-  return config;
+  const raw = parseRawConfig(DEFAULT_CONFIG_CONTENT);
+  return buildSanityConfig(raw, onWarning);
 }
 
-/**
- * Load and merge all config files from the hierarchy.
- */
 export function loadConfig(projectDir?: string, onWarning?: WarningSink): SanityConfig {
   const sink = onWarning ?? defaultSink;
-  const configs: SanityConfig[] = [];
 
   // 1. Built-in defaults
-  configs.push(loadDefaultConfig(sink));
+  let raw = parseRawConfig(DEFAULT_CONFIG_CONTENT);
 
   // 2. User global config
   const userConfigPath = path.join(os.homedir(), ".pi", "agent", "sanity.toml");
   if (fs.existsSync(userConfigPath)) {
     try {
-      configs.push(loadConfigFromString(fs.readFileSync(userConfigPath, "utf-8"), sink));
+      const userRaw = parseRawConfig(fs.readFileSync(userConfigPath, "utf-8"));
+      raw = mergeRawConfigs(raw, userRaw);
     } catch (e: any) {
       sink(`[pi-sanity] Failed to load config from ${userConfigPath}: ${e.message}`);
     }
@@ -250,74 +302,13 @@ export function loadConfig(projectDir?: string, onWarning?: WarningSink): Sanity
     const projectConfigPath = path.join(projectDir, ".pi", "sanity.toml");
     if (fs.existsSync(projectConfigPath)) {
       try {
-        configs.push(loadConfigFromString(fs.readFileSync(projectConfigPath, "utf-8"), sink));
+        const projectRaw = parseRawConfig(fs.readFileSync(projectConfigPath, "utf-8"));
+        raw = mergeRawConfigs(raw, projectRaw);
       } catch (e: any) {
         sink(`[pi-sanity] Failed to load config from ${projectConfigPath}: ${e.message}`);
       }
     }
   }
 
-  // Merge all configs
-  let result = configs[0];
-  for (let i = 1; i < configs.length; i++) {
-    result = mergeConfigs(result, configs[i]);
-  }
-
-  return result;
-}
-
-/**
- * Merge two SanityConfigs. Base is the lower-priority config, override is higher-priority.
- */
-export function mergeConfigs(base: SanityConfig, override: SanityConfig): SanityConfig {
-  const result: SanityConfig = {
-    permissions: {
-      read: mergePermissionSection(base.permissions.read, override.permissions.read),
-      write: mergePermissionSection(base.permissions.write, override.permissions.write),
-    },
-    commands: {
-      default_action: override.commands.default_action ?? base.commands.default_action,
-      reason: override.commands.reason ?? base.commands.reason,
-      rules: [],
-    },
-    ask_timeout: override.ask_timeout ?? base.ask_timeout,
-  };
-
-  // If override came from a catch-all (names = [""]), discard base rules entirely
-  if (!override.commands.clear_rules) {
-    const offset = base.commands.rules.length;
-    for (const rule of base.commands.rules) {
-      result.commands.rules.push(rule);
-    }
-    for (const rule of override.commands.rules) {
-      result.commands.rules.push({ ...rule, priority: rule.priority + offset });
-    }
-  } else {
-    // Catch-all: only override rules (re-prioritized from 0)
-    for (const rule of override.commands.rules) {
-      result.commands.rules.push({ ...rule, priority: rule.priority });
-    }
-  }
-
-  // Sort descending by priority (highest first = last-match-wins)
-  result.commands.rules.sort((a, b) => b.priority - a.priority);
-
-  return result;
-}
-
-/**
- * Merge permission sections.
- */
-function mergePermissionSection(
-  target: PermissionSection,
-  source: Partial<PermissionSection>,
-): PermissionSection {
-  const sourceOverrides = Array.isArray(source.overrides)
-    ? source.overrides
-    : [];
-  return {
-    default: source.default ?? target.default,
-    reason: source.reason ?? target.reason,
-    overrides: [...target.overrides, ...sourceOverrides],
-  };
+  return buildSanityConfig(raw, sink);
 }

@@ -12,7 +12,7 @@ function makeConfig(cmdName: string, ruleConfig: RuleConfig): SanityConfig {
   const config = createEmptyConfig();
   config.commands.rules.push({
     name: cmdName,
-    priority: 0,
+    
     action: "allow",
     config: ruleConfig,
   });
@@ -39,7 +39,7 @@ function makeConfigWithSpecificPath(
   const config = createEmptyConfig();
   config.commands.rules.push({
     name: cmdName,
-    priority: 0,
+    
     action: "allow",
     config: ruleConfig,
   });
@@ -62,7 +62,7 @@ function makeConfigWithDenyDefault(
   const config = createEmptyConfig();
   config.commands.rules.push({
     name: cmdName,
-    priority: 0,
+    
     action: "allow",
     config: ruleConfig,
   });
