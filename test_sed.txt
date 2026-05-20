@@ -1,2 +1,0 @@
-This is a\path\with\slashes
-And another\path\here

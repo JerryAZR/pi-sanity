@@ -32,6 +32,7 @@ src/generated/
 .pi/task_tree/
 test-skill/
 test_allow.txt
+test_*.txt
 
 # Scripts (keep embed-config.js and skill scripts)
 !scripts/embed-config.js
