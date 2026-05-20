@@ -98,9 +98,14 @@ describe("checkBash with default config", () => {
   });
 
   describe("sed in-place editing", () => {
-    it("should ask for sed -i (in-place edit)", () => {
+    it("should allow sed -i in CWD (write check)", () => {
       const result = checkBash("sed -i 's/foo/bar/' file.txt", config);
-      assert.strictEqual(result.action, "ask");
+      assert.strictEqual(result.action, "allow");
+    });
+
+    it("should deny sed -i on system path (write check)", () => {
+      const result = checkBash("sed -i 's/foo/bar/' /etc/passwd", config);
+      assert.strictEqual(result.action, "deny");
     });
 
     it("should allow sed without -i (read-only)", () => {

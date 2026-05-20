@@ -86,16 +86,15 @@ reason = "Unknown commands default to allow (low-friction)"
 names = ["cat", "head", "tail", "less", "more", "grep", "awk", "sed", "cut", "sort", "uniq", "wc"]
 positionals = { default_perm = ["read"] }
 
-# sed in-place editing: ask before modifying files
-# This rule overrides the general sed entry above because it comes later
-# (last-match-wins). When -i is not present, positionals are still checked
-# as read paths, preserving the same behavior as the general rule.
+# sed in-place editing: check file paths against write permissions.
+# Matches "sed -i" and "sed -i ''" (macOS empty backup suffix).
+# All positionals are checked as write paths. The sed script resolves
+# relative to CWD and is typically allowed; actual file paths are checked
+# correctly (allowed in CWD/TMPDIR, denied in system directories).
 [[commands.rules]]
-names = ["sed"]
-positionals = { default_perm = ["read"] }
-flags = [
-  { flag = "-i", action = "ask", reason = "In-place editing modifies files" }
-]
+names = ["sed -i"]
+positionals = { default_perm = ["write"] }
+reason = "In-place editing modifies files"
 
 # cp: read sources, write destination
 [[commands.rules]]
