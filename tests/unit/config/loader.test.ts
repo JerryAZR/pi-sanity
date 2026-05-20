@@ -2,7 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import {
   loadConfigFromString,
-  ConfigParseError,
 } from "../../../src/config-loader.js";
 
 describe("loadConfigFromString", () => {
@@ -147,20 +146,22 @@ action = "ask"
     assert.ok(warnings[0].includes('must be the only element'));
   });
 
-  it("should throw ConfigParseError for old [commands.NAME] format", () => {
+  it("should warn about old [commands.NAME] format and skip it", () => {
     const toml = `
 [commands.cp]
 default_action = "allow"
 `;
-    assert.throws(
-      () => loadConfigFromString(toml),
-      (err: any) => {
-        assert.ok(err instanceof ConfigParseError);
-        assert.ok(err.message.includes("old command rule format"));
-        assert.ok(err.message.includes("/skill:sanity-config"));
-        return true;
-      },
-    );
+    const warnings: string[] = [];
+    const config = loadConfigFromString(toml, (msg) => warnings.push(msg));
+
+    // Old-format entry is ignored; config loads with defaults
+    assert.strictEqual(config.commands.rules.length, 0);
+    assert.strictEqual(config.commands.default_action, "allow");
+
+    // Warning emitted
+    assert.strictEqual(warnings.length, 1);
+    assert.ok(warnings[0].includes('Ignoring unsupported key "cp"'));
+    assert.ok(warnings[0].includes('/skill:sanity-config'));
   });
 
   it("should parse permissions", () => {

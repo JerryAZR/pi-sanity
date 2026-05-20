@@ -177,12 +177,13 @@ export class ConfigParseError extends Error {
 }
 
 function buildSanityConfig(raw: RawConfig, onWarning?: WarningSink): SanityConfig {
-  // Detect old format [commands.NAME]
+  // Warn about unknown keys in [commands] (e.g. old format [commands.NAME])
+  const sink = onWarning ?? defaultSink;
   for (const key of Object.keys(raw.commands)) {
     if (!["default", "default_action", "reason", "rules"].includes(key)) {
-      throw new ConfigParseError(
-        `Config uses old command rule format: [commands.${key}]. ` +
-        `Please migrate to the new [[commands.rules]] format. ` +
+      sink(
+        `[pi-sanity] Ignoring unsupported key "${key}" in [commands]. ` +
+        `If you meant to define a command rule, use [[commands.rules]] with names = ["${key}"]. ` +
         `Use /skill:sanity-config for assistance.`
       );
     }
