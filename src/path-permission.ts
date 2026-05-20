@@ -131,13 +131,15 @@ export function checkWrite(
 }
 
 /**
- * Check delete permission for a path
+ * Check delete permission for a path.
+ * Deletion is a write operation (modifies the parent directory),
+ * so this is an alias for checkWrite.
+ * @deprecated Use checkWrite directly.
  */
 export function checkDelete(
   filePath: string,
   config: SanityConfig,
   context?: PathContext,
 ): PathCheckResult {
-  const ctx = context ?? getDefaultContext();
-  return checkPathPermission(filePath, config.permissions.delete, ctx);
+  return checkWrite(filePath, config, context);
 }

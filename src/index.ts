@@ -15,6 +15,6 @@ export type { SanityConfig, Action, CommandConfig } from "./config-types.js";
 // High-level checkers
 export { checkRead } from "./checker-read.js";
 export { checkWrite } from "./checker-write.js";
-export { checkDelete } from "./path-permission.js";
+export { checkDelete } from "./path-permission.js";  // Deprecated: use checkWrite
 export { checkBash } from "./checker-bash.js";
 export type { CheckResult } from "./types.js";

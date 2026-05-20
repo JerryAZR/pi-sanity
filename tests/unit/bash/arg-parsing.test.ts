@@ -3,14 +3,19 @@ import assert from "node:assert";
 import { walkBash } from "../../../src/bash-walker.js";
 import { checkBash } from "../../../src/checker-bash.js";
 import { createEmptyConfig } from "../../../src/config-types.js";
-import type { SanityConfig, CommandConfig } from "../../../src/config-types.js";
+import type { SanityConfig, RuleConfig } from "../../../src/config-types.js";
 
 /**
  * Build a test config with a single command rule.
  */
-function makeConfig(cmdName: string, cmdConfig: CommandConfig): SanityConfig {
+function makeConfig(cmdName: string, ruleConfig: RuleConfig): SanityConfig {
   const config = createEmptyConfig();
-  config.commands[cmdName] = cmdConfig;
+  config.commands.rules.push({
+    name: cmdName,
+    priority: 0,
+    action: "allow",
+    config: ruleConfig,
+  });
   return config;
 }
 
@@ -26,13 +31,18 @@ function makeConfig(cmdName: string, cmdConfig: CommandConfig): SanityConfig {
  */
 function makeConfigWithSpecificPath(
   cmdName: string,
-  cmdConfig: CommandConfig,
+  ruleConfig: RuleConfig,
   permType: "read" | "write",
   pattern: string,
   action: "deny" | "ask",
 ): SanityConfig {
   const config = createEmptyConfig();
-  config.commands[cmdName] = cmdConfig;
+  config.commands.rules.push({
+    name: cmdName,
+    priority: 0,
+    action: "allow",
+    config: ruleConfig,
+  });
   config.permissions[permType].default = "allow";
   config.permissions[permType].overrides.push({ path: [pattern], action });
   return config;
@@ -45,12 +55,17 @@ function makeConfigWithSpecificPath(
  */
 function makeConfigWithDenyDefault(
   cmdName: string,
-  cmdConfig: CommandConfig,
+  ruleConfig: RuleConfig,
   readAllowPatterns: string[] = [],
   writeAllowPatterns: string[] = [],
 ): SanityConfig {
   const config = createEmptyConfig();
-  config.commands[cmdName] = cmdConfig;
+  config.commands.rules.push({
+    name: cmdName,
+    priority: 0,
+    action: "allow",
+    config: ruleConfig,
+  });
   config.permissions.read.default = "deny";
   config.permissions.write.default = "deny";
   for (const p of readAllowPatterns) {
@@ -69,7 +84,6 @@ describe("arg parsing — plain commands", () => {
       // Failure caught: hasFlag returns false for -f (exact match broken)
       // Wrong result if bug: "allow" (flag not detected)
       const config = makeConfig("cmd", {
-        default_action: "allow",
         flags: [{ flag: "-f", action: "deny" }],
       });
       const result = checkBash("cmd -f", config);
@@ -81,7 +95,6 @@ describe("arg parsing — plain commands", () => {
       // Failure caught: hasFlag returns false for --force
       // Wrong result if bug: "allow"
       const config = makeConfig("cmd", {
-        default_action: "allow",
         flags: [{ flag: "--force", action: "deny" }],
       });
       const result = checkBash("cmd --force", config);
@@ -93,7 +106,6 @@ describe("arg parsing — plain commands", () => {
       // Failure caught: hasFlag only checks exact match, misses combined
       // Wrong result if bug: "allow"
       const config = makeConfig("cmd", {
-        default_action: "allow",
         flags: [{ flag: "-f", action: "deny" }],
       });
       const result = checkBash("cmd -rf", config);
@@ -105,7 +117,6 @@ describe("arg parsing — plain commands", () => {
       // Failure caught: only one flag detected, or neither
       // Wrong result if bug: "allow" or "ask" (instead of "deny")
       const config = makeConfig("cmd", {
-        default_action: "allow",
         flags: [
           { flag: "-r", action: "ask" },
           { flag: "-f", action: "deny" },
@@ -120,7 +131,6 @@ describe("arg parsing — plain commands", () => {
       // Failure caught: hasFlag uses substring match instead of exact
       // Wrong result if bug: "deny" (false positive match)
       const config = makeConfig("cmd", {
-        default_action: "allow",
         flags: [{ flag: "--force", action: "deny" }],
       });
       const result = checkBash("cmd --forced", config);
@@ -132,7 +142,6 @@ describe("arg parsing — plain commands", () => {
       // Failure caught: hasFlag rejects multi-char single-dash flags
       // Wrong result if bug: "allow"
       const config = makeConfig("gcc", {
-        default_action: "allow",
         flags: [{ flag: "-Wall", action: "ask" }],
       });
       const result = checkBash("gcc -Wall", config);
@@ -144,7 +153,6 @@ describe("arg parsing — plain commands", () => {
       // Failure caught: hasFlag decomposes -Wall, letting -W match inside it
       // Wrong result if bug: "deny" (from -W match)
       const config = makeConfig("gcc", {
-        default_action: "allow",
         flags: [
           { flag: "-Wall", action: "ask" },
           { flag: "-W", action: "deny" },
@@ -159,7 +167,6 @@ describe("arg parsing — plain commands", () => {
       // Failure caught: hasFlag treats ALL multi-char tokens as atomic
       // Wrong result if bug: "allow"
       const config = makeConfig("gcc", {
-        default_action: "allow",
         flags: [{ flag: "-W", action: "deny" }],
       });
       const result = checkBash("gcc -Wall", config);
@@ -171,7 +178,6 @@ describe("arg parsing — plain commands", () => {
       // Failure caught: hasFlag does substring match on all args
       // Wrong result if bug: "deny" (false positive)
       const config = makeConfig("cmd", {
-        default_action: "allow",
         flags: [{ flag: "-f", action: "deny" }],
       });
       const result = checkBash("cmd file.txt", config);
@@ -186,7 +192,7 @@ describe("arg parsing — plain commands", () => {
       // Wrong result if bug: "allow" (override not matched)
       const config = makeConfigWithSpecificPath(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [] }, options: { "-o": ["write"] } },
+        { positionals: { default_perm: [] }, options: { "-o": ["write"] } },
         "write",
         "/specific",
         "deny",
@@ -201,7 +207,7 @@ describe("arg parsing — plain commands", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [] }, options: { "-o": ["write"] } },
+        { positionals: { default_perm: [] }, options: { "-o": ["write"] } },
         "write",
         "/specific",
         "deny",
@@ -222,7 +228,7 @@ describe("arg parsing — plain commands", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [], overrides: { "0": ["read"] } }, options: { "-o": ["write"] } },
+        { positionals: { default_perm: [], overrides: { "0": ["read"] } }, options: { "-o": ["write"] } },
         "read",
         "/pos0-read",
         "deny",
@@ -245,7 +251,7 @@ describe("arg parsing — plain commands", () => {
       // -r becomes positional 0 (no override → allow) and src/ becomes positional 1.
       const config = makeConfigWithSpecificPath(
         "cp",
-        { default_action: "allow", positionals: { default_perm: [], overrides: { "0": ["read"] } } },
+        { positionals: { default_perm: [], overrides: { "0": ["read"] } } },
         "read",
         "/src",
         "deny",
@@ -267,7 +273,7 @@ describe("arg parsing — plain commands", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "mv",
-        { default_action: "allow", positionals: { default_perm: [], overrides: { "-1": ["read"] } } },
+        { positionals: { default_perm: [], overrides: { "-1": ["read"] } } },
         "read",
         "/last",
         "deny",
@@ -285,7 +291,7 @@ describe("arg parsing — plain commands", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [], overrides: { "1": ["read"] } } },
+        { positionals: { default_perm: [], overrides: { "1": ["read"] } } },
         "read",
         "/pos1",
         "deny",
@@ -303,7 +309,7 @@ describe("arg parsing — plain commands", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [], overrides: { "0": ["read"] } }, flags: [{ flag: "--force", action: "allow" }] },
+        { positionals: { default_perm: [], overrides: { "0": ["read"] } }, flags: [{ flag: "--force", action: "allow" }] },
         "read",
         "/pos0",
         "deny",
@@ -373,7 +379,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "deny"
       const config = makeConfigWithDenyDefault(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: ["read"] } },
+        { positionals: { default_perm: ["read"] } },
         ["/static"],
       );
       const result = checkBash("cmd $(echo /anything) /static", config);
@@ -394,7 +400,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "cp",
-        { default_action: "allow", positionals: { default_perm: [], overrides: { "-1": ["read"] } } },
+        { positionals: { default_perm: [], overrides: { "-1": ["read"] } } },
         "read",
         "/last",
         "deny",
@@ -413,7 +419,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: [], overrides: { "1": ["read"] } } },
+        { positionals: { default_perm: [], overrides: { "1": ["read"] } } },
         "read",
         "/pos1",
         "deny",
@@ -433,7 +439,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "deny"
       const config = makeConfigWithDenyDefault(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: ["read"] } },
+        { positionals: { default_perm: ["read"] } },
         ["/static*"],
       );
       const result = checkBash("cmd $(echo a) /static1 $(echo b) /static2", config);
@@ -455,7 +461,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "deny"
       const config = makeConfigWithDenyDefault(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: ["read"] }, options: { "-o": ["write"] } },
+        { positionals: { default_perm: ["read"] }, options: { "-o": ["write"] } },
         ["/static"],
       );
       const result = checkBash("cmd -o $(echo /opt) $(echo /pos) /static", config);
@@ -476,7 +482,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "deny"
       const config = makeConfigWithDenyDefault(
         "gcc",
-        { default_action: "allow", positionals: { default_perm: ["read"] }, options: { "-o": ["write"] } },
+        { positionals: { default_perm: ["read"] }, options: { "-o": ["write"] } },
         ["/static"],
       );
       const result = checkBash("gcc -o $(echo /opt) /static", config);
@@ -493,7 +499,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "gcc",
-        { default_action: "allow", positionals: { default_perm: [] }, options: { "-o": ["write"] } },
+        { positionals: { default_perm: [] }, options: { "-o": ["write"] } },
         "write",
         "/specific",
         "deny",
@@ -514,7 +520,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "deny"
       const config = makeConfigWithDenyDefault(
         "cmd",
-        { default_action: "allow", positionals: { default_perm: ["read"] }, options: { "-o": ["write"] } },
+        { positionals: { default_perm: ["read"] }, options: { "-o": ["write"] } },
         ["/static"],
       );
       const result = checkBash("cmd -o=$(echo /opt) /static", config);
@@ -534,7 +540,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "tar",
-        { default_action: "allow", positionals: { default_perm: [] }, flags: [{ flag: "-x", action: "allow" }], options: { "-f": ["read"] } },
+        { positionals: { default_perm: [] }, flags: [{ flag: "-x", action: "allow" }], options: { "-f": ["read"] } },
         "read",
         "/specific",
         "deny",
@@ -551,7 +557,7 @@ describe("arg parsing — dynamic args", () => {
       // Wrong result if bug: "allow"
       const config = makeConfigWithSpecificPath(
         "tar",
-        { default_action: "allow", positionals: { default_perm: [] }, flags: [{ flag: "-x", action: "allow" }], options: { "-f": ["write"] } },
+        { positionals: { default_perm: [] }, flags: [{ flag: "-x", action: "allow" }], options: { "-f": ["write"] } },
         "write",
         "/specific",
         "deny",
@@ -581,7 +587,6 @@ describe("arg parsing — dynamic args", () => {
       const config = makeConfigWithDenyDefault(
         "cmd",
         {
-          default_action: "allow",
           positionals: { default_perm: ["read"] },
           flags: [{ flag: "-Wall", action: "ask" }],
           options: { "-W": ["write"] },

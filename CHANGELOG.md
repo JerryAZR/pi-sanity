@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`/sanity-config` prompt template**. Users can type `/sanity-config` followed by any natural language request to modify pi-sanity configuration — whitelist operations, change policies, adjust command rules, etc. The prompt includes the full config syntax for path permissions (`[permissions.read]` / `[[permissions.read.overrides]]`), command rules (`[commands.NAME]` with `pre_checks`, `positionals`, `options`, `flags`), and context variables (`{{HOME}}`, `{{CWD}}`, etc.). The LLM is instructed to make reasonable assumptions and not ask for clarification unless genuinely ambiguous. Registered automatically via `resources_discover`.
+
 ## [0.3.0] - 2026-04-28
 
 ### Added

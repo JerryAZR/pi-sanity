@@ -1,6 +1,6 @@
 /**
  * Configuration types for pi-sanity
- * All fields use full names for clarity (e.g., "read,delete" not "rd")
+ * All fields use full names for clarity
  */
 
 export type Action = "allow" | "ask" | "deny";
@@ -29,8 +29,8 @@ export interface PreCheck {
 }
 
 export interface PositionalConfig {
-  default_perm: string; // e.g., "read", "write", "read,delete", or "" for none
-  overrides?: Record<string, string>; // index -> permission, e.g., { "-1": "write" }
+  default_perm: string[]; // e.g. ["read"], ["read", "write"], or [] for none
+  overrides?: Record<string, string[]>; // index -> permission, e.g. { "-1": ["write"] }
 }
 
 export interface FlagConfig {
@@ -38,24 +38,54 @@ export interface FlagConfig {
   reason?: string;
 }
 
-export interface CommandConfig {
-  default_action: Action;
+/**
+ * The body of a command rule: positionals, options, flags, pre_checks.
+ * The rule's fallback action lives at Rule.action, not here.
+ */
+export interface RuleConfig {
   reason?: string;
   pre_checks?: PreCheck[];
   positionals?: PositionalConfig;
-  options?: Record<string, string>; // option name -> permission
-  flags?: Record<string, FlagConfig>;
+  options?: Record<string, string[]>; // option name -> permission
+  flags?: Array<{ flag: string } & FlagConfig>;
+}
+
+/**
+ * Backward-compat alias. `CommandConfig` was the old per-command table value.
+ * It maps 1:1 to `RuleConfig` (no default_action field).
+ * @deprecated Use RuleConfig directly.
+ */
+export type CommandConfig = RuleConfig;
+
+/**
+ * A single flattened rule with one name and a priority.
+ * Created from `[[commands.rules]]` entries at parse time.
+ */
+export interface Rule {
+  name: string;            // single prefix
+  priority: number;        // higher = later in config = wins over lower
+  action: Action;          // fallback when no checks trigger
+  reason?: string;
+  config: RuleConfig;
+}
+
+/**
+ * The commands domain: default action + ordered rule list.
+ */
+export interface CommandsConfig {
+  default_action: Action;
+  reason?: string;
+  rules: Rule[];
 }
 
 export interface PermissionsConfig {
   read: PermissionSection;
   write: PermissionSection;
-  delete: PermissionSection;
 }
 
 export interface SanityConfig {
   permissions: PermissionsConfig;
-  commands: Record<string, CommandConfig>;
+  commands: CommandsConfig;
   ask_timeout?: number; // Timeout in seconds for "ask" prompts (default: 30)
 }
 
@@ -67,14 +97,11 @@ export function createEmptyConfig(): SanityConfig {
     permissions: {
       read: { default: "allow", overrides: [] },
       write: { default: "allow", overrides: [] },
-      delete: { default: "allow", overrides: [] },
     },
     commands: {
-      // Global default for unknown commands - low friction
-      "_": {
-        default_action: "allow",
-        reason: "Unknown commands default to allow (low-friction)",
-      },
+      default_action: "allow",
+      reason: "Unknown commands default to allow (low-friction)",
+      rules: [],
     },
   };
 }

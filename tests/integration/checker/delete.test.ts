@@ -1,69 +1,72 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import * as os from "os";
-import { checkDelete, loadDefaultConfig } from "../../../src/index.js";
+// This file previously tested checkDelete. Since the delete permission has been
+// merged into write, deletion is now checked against permissions.write.
+// These tests have been updated to use checkWrite to verify the same behavior.
+import { checkWrite, loadDefaultConfig } from "../../../src/index.js";
 
-describe("checkDelete with default config", () => {
+describe("checkWrite (delete behavior) with default config", () => {
   const config = loadDefaultConfig();
   const home = os.homedir();
   const tmpdir = os.tmpdir();
 
   describe("HOME directory", () => {
     it("should ask for regular files in HOME", () => {
-      const result = checkDelete(`${home}/documents/file.txt`, config);
+      const result = checkWrite(`${home}/documents/file.txt`, config);
       assert.strictEqual(result.action, "ask");
     });
 
     it("should ask for hidden files in HOME", () => {
-      const result = checkDelete(`${home}/.bashrc`, config);
+      const result = checkWrite(`${home}/.bashrc`, config);
       assert.strictEqual(result.action, "ask");
     });
   });
 
   describe("CWD (allowed)", () => {
     it("should allow regular files in CWD", () => {
-      const result = checkDelete("file.txt", config);
+      const result = checkWrite("file.txt", config);
       assert.strictEqual(result.action, "allow");
     });
 
     it("should allow hidden files in CWD", () => {
-      const result = checkDelete(".env", config);
+      const result = checkWrite(".env", config);
       assert.strictEqual(result.action, "allow");
     });
   });
 
   describe("TMPDIR (allowed)", () => {
     it("should allow regular files in TMPDIR", () => {
-      const result = checkDelete(`${tmpdir}/file.txt`, config);
+      const result = checkWrite(`${tmpdir}/file.txt`, config);
       assert.strictEqual(result.action, "allow");
     });
 
     it("should allow hidden files in TMPDIR", () => {
-      const result = checkDelete(`${tmpdir}/.hidden`, config);
+      const result = checkWrite(`${tmpdir}/.hidden`, config);
       assert.strictEqual(result.action, "allow");
     });
   });
 
   describe("git protection", () => {
     it("should ask for .git/config", () => {
-      const result = checkDelete(".git/config", config);
+      const result = checkWrite(".git/config", config);
       assert.strictEqual(result.action, "ask");
     });
 
     it("should ask for files in .git/", () => {
-      const result = checkDelete(".git/objects/abc", config);
+      const result = checkWrite(".git/objects/abc", config);
       assert.strictEqual(result.action, "ask");
     });
   });
 
   describe("system directories (deny)", () => {
     it("should deny /etc/file", () => {
-      const result = checkDelete("/etc/file", config);
+      const result = checkWrite("/etc/file", config);
       assert.strictEqual(result.action, "deny");
     });
 
     it("should deny /usr/bin/app", () => {
-      const result = checkDelete("/usr/bin/app", config);
+      const result = checkWrite("/usr/bin/app", config);
       assert.strictEqual(result.action, "deny");
     });
   });

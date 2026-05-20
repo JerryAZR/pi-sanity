@@ -1,8 +1,6 @@
 /**
  * Config loader for pi-sanity
  * Loads and merges TOML config files from multiple sources
- * Aliases are expanded into separate CommandConfig entries for O(1) lookup
- * Patterns are preprocessed at load time for efficient matching
  */
 
 import * as fs from "fs";
@@ -14,6 +12,8 @@ import type {
   FlagConfig,
   PermissionSection,
   PositionalConfig,
+  Rule,
+  RuleConfig,
   SanityConfig,
 } from "./config-types.js";
 import { createEmptyConfig } from "./config-types.js";
@@ -38,15 +38,12 @@ function createConfigContext(): PathContext {
     cwd: process.cwd(),
     home: os.homedir(),
     tmpdir: os.tmpdir(),
-    repo: undefined, // Will be set per-project if needed
+    repo: undefined,
   };
 }
 
 /**
  * Preprocess all path patterns in a config.
- * Expands variables ({{HOME}}, {{CWD}}, etc.) and normalizes paths.
- * Called after config loading/merging so patterns are ready to use.
- * Skips invalid overrides (missing path or action) with a warning.
  */
 function preprocessConfigPatterns(config: SanityConfig, onWarning?: WarningSink): void {
   const sink = onWarning ?? defaultSink;
@@ -54,7 +51,6 @@ function preprocessConfigPatterns(config: SanityConfig, onWarning?: WarningSink)
 
   config.permissions.read.overrides = filterValidOverrides(config.permissions.read.overrides, "read", ctx, sink);
   config.permissions.write.overrides = filterValidOverrides(config.permissions.write.overrides, "write", ctx, sink);
-  config.permissions.delete.overrides = filterValidOverrides(config.permissions.delete.overrides, "delete", ctx, sink);
 }
 
 function filterValidOverrides(
@@ -91,208 +87,215 @@ function filterValidOverrides(
 }
 
 /**
+ * Parse TOML commands section into CommandsConfig.
+ * Handles [[commands.rules]] array format.
+ */
+function parseCommands(tomlCommands: any): { default_action: string; reason?: string; rules: Rule[] } {
+  const result = {
+    default_action: tomlCommands?.default ?? tomlCommands?.default_action ?? "allow",
+    reason: tomlCommands?.reason,
+    rules: [] as Rule[],
+  };
+
+  // Detect old format [commands.NAME]
+  const knownKeys = new Set(["default", "default_action", "reason", "rules"]);
+  for (const key of Object.keys(tomlCommands ?? {})) {
+    if (!knownKeys.has(key)) {
+      throw new ConfigParseError(
+        `Config uses old command rule format: [commands.${key}]. ` +
+        `Please migrate to the new [[commands.rules]] format. ` +
+        `Use /skill:sanity-config for assistance.`
+      );
+    }
+  }
+
+  const rawRules = tomlCommands?.rules;
+  if (!Array.isArray(rawRules)) return result;
+
+  for (let i = 0; i < rawRules.length; i++) {
+    const raw = rawRules[i];
+    if (!raw || !Array.isArray(raw.names) || raw.names.length === 0) continue;
+
+    // Catch-all: names = [""]
+    if (raw.names.length === 1 && raw.names[0] === "") {
+      result.rules = []; // clear all previous rules
+      result.default_action = raw.action ?? result.default_action;
+      result.reason = raw.reason ?? result.reason;
+      continue;
+    }
+
+    const ruleConfig: RuleConfig = {
+      reason: raw.reason,
+      pre_checks: raw.pre_checks,
+      positionals: raw.positionals,
+      options: raw.options,
+      flags: raw.flags,
+    };
+
+    // Flatten names: one rule per name, sharing the same config
+    for (const name of raw.names) {
+      result.rules.push({
+        name,
+        priority: i,
+        action: raw.action ?? result.default_action,
+        reason: raw.reason,
+        config: ruleConfig,
+      });
+    }
+  }
+
+  return result;
+}
+
+export class ConfigParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigParseError";
+  }
+}
+
+/**
  * Load a TOML config from a string.
- * Use this for inline config in tests or programmatic config.
- * Patterns are NOT preprocessed - caller must preprocess if needed,
- * or use preprocessConfigPatterns() directly.
  */
 export function loadConfigFromString(tomlContent: string, onWarning?: WarningSink): SanityConfig {
-  const parsed = parse(tomlContent) as Partial<SanityConfig>;
-  const config = mergeConfigs([expandAliases(parsed)]);
+  const parsed = parse(tomlContent) as any;
+  const commands = parseCommands(parsed.commands);
+
+  const config: SanityConfig = {
+    permissions: {
+      read: mergePermissionSection(
+        { default: "allow", overrides: [] },
+        parsed.permissions?.read ?? {},
+      ),
+      write: mergePermissionSection(
+        { default: "allow", overrides: [] },
+        parsed.permissions?.write ?? {},
+      ),
+    },
+    commands: {
+      default_action: commands.default_action as any,
+      reason: commands.reason,
+      rules: commands.rules,
+    },
+    ask_timeout: parsed.ask_timeout,
+  };
+
   preprocessConfigPatterns(config, onWarning);
   return config;
 }
 
 /**
  * Load the embedded default config.
- * This is embedded at build time by scripts/embed-config.js
  */
-function loadEmbeddedDefaultConfig(): Partial<SanityConfig> {
-  return parse(DEFAULT_CONFIG_CONTENT) as Partial<SanityConfig>;
+function loadEmbeddedDefaultConfig(): any {
+  return parse(DEFAULT_CONFIG_CONTENT);
 }
 
 /**
  * Load only the built-in default configuration.
- * Does not load user global or project configs.
- * Useful for testing or when you want guaranteed defaults.
  */
 export function loadDefaultConfig(onWarning?: WarningSink): SanityConfig {
-  const config = mergeConfigs([expandAliases(loadEmbeddedDefaultConfig())]);
+  const parsed = loadEmbeddedDefaultConfig();
+  const commands = parseCommands(parsed.commands);
+
+  const config: SanityConfig = {
+    permissions: {
+      read: mergePermissionSection(
+        { default: "allow", overrides: [] },
+        parsed.permissions?.read ?? {},
+      ),
+      write: mergePermissionSection(
+        { default: "allow", overrides: [] },
+        parsed.permissions?.write ?? {},
+      ),
+    },
+    commands: {
+      default_action: commands.default_action as any,
+      reason: commands.reason,
+      rules: commands.rules,
+    },
+    ask_timeout: parsed.ask_timeout,
+  };
+
   preprocessConfigPatterns(config, onWarning);
   return config;
 }
 
 /**
- * Load and merge all config files from the hierarchy:
- * 1. Built-in defaults (embedded at build time)
- * 2. User global config (~/.pi/agent/sanity.toml)
- * 3. Project config (.pi/sanity.toml)
- *
- * @param projectDir - Path to project root (for project config)
- * @returns Merged SanityConfig with preprocessed patterns
+ * Load and merge all config files from the hierarchy.
  */
 export function loadConfig(projectDir?: string, onWarning?: WarningSink): SanityConfig {
   const sink = onWarning ?? defaultSink;
-  const configs: Partial<SanityConfig>[] = [];
+  const configs: SanityConfig[] = [];
 
-  // 1. Built-in defaults (embedded at build time)
-  configs.push(expandAliases(loadEmbeddedDefaultConfig()));
+  // 1. Built-in defaults
+  configs.push(loadDefaultConfig(sink));
 
-  // 2. User global config (~/.pi/agent/sanity.toml)
-  const userConfigPath = path.join(
-    os.homedir(),
-    ".pi",
-    "agent",
-    "sanity.toml",
-  );
+  // 2. User global config
+  const userConfigPath = path.join(os.homedir(), ".pi", "agent", "sanity.toml");
   if (fs.existsSync(userConfigPath)) {
-    const userConfig = loadTomlFile(userConfigPath, sink);
-    if (userConfig) {
-      configs.push(expandAliases(userConfig));
+    try {
+      configs.push(loadConfigFromString(fs.readFileSync(userConfigPath, "utf-8"), sink));
+    } catch (e: any) {
+      sink(`[pi-sanity] Failed to load config from ${userConfigPath}: ${e.message}`);
     }
   }
 
-  // 3. Project config (.pi/sanity.toml)
+  // 3. Project config
   if (projectDir) {
     const projectConfigPath = path.join(projectDir, ".pi", "sanity.toml");
     if (fs.existsSync(projectConfigPath)) {
-      const projectConfig = loadTomlFile(projectConfigPath, sink);
-      if (projectConfig) {
-        configs.push(expandAliases(projectConfig));
+      try {
+        configs.push(loadConfigFromString(fs.readFileSync(projectConfigPath, "utf-8"), sink));
+      } catch (e: any) {
+        sink(`[pi-sanity] Failed to load config from ${projectConfigPath}: ${e.message}`);
       }
     }
   }
 
   // Merge all configs
-  const config = mergeConfigs(configs);
-  
-  // Preprocess all patterns after merging
-  preprocessConfigPatterns(config, sink);
-  
-  return config;
-}
-
-/**
- * Parse a single TOML config file.
- * Returns undefined and logs a warning on parse error instead of crashing.
- */
-function loadTomlFile(filePath: string, sink: WarningSink): Partial<SanityConfig> | undefined {
-  try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    return parse(content) as Partial<SanityConfig>;
-  } catch (err: any) {
-    const message = err?.message || String(err);
-    sink(`[pi-sanity] Failed to load config from ${filePath}: ${message}`);
-    return undefined;
-  }
-}
-
-/**
- * Expand aliases in commands so each alias gets its own CommandConfig entry.
- * This allows O(1) lookup and independent override of aliases.
- *
- * Input: { cp: { aliases: ["copy"], default_action: "allow" } }
- * Output: { cp: { default_action: "allow" }, copy: { default_action: "allow" } }
- */
-function expandAliases(config: Partial<SanityConfig>): Partial<SanityConfig> {
-  if (!config.commands) return config;
-
-  const expandedCommands: Record<string, CommandConfig> = {};
-
-  for (const [name, cmdConfig] of Object.entries(config.commands)) {
-    if (!cmdConfig) continue;
-
-    // Get aliases and remove from config
-    const aliases = (cmdConfig as CommandConfig & { aliases?: string[] }).aliases;
-    const { aliases: _, ...configWithoutAliases } = cmdConfig as CommandConfig & { aliases?: string[] };
-
-    // Add primary command
-    expandedCommands[name] = configWithoutAliases;
-
-    // Expand each alias as a copy
-    if (aliases) {
-      for (const alias of aliases) {
-        // Alias gets a copy - can diverge independently
-        expandedCommands[alias] = { ...configWithoutAliases };
-      }
-    }
-  }
-
-  return {
-    ...config,
-    commands: expandedCommands,
-  };
-}
-
-/**
- * Merge multiple partial configs into a single SanityConfig
- *
- * Merge semantics:
- * - Objects: deep merge (recurse)
- * - Arrays: append (later configs add items after earlier)
- * - Scalars: later overrides earlier
- */
-export function mergeConfigs(
-  configs: Partial<SanityConfig>[],
-): SanityConfig {
-  const result = createEmptyConfig();
-
-  for (const config of configs) {
-    if (!config) continue;
-    mergeInto(result, config);
+  let result = configs[0];
+  for (let i = 1; i < configs.length; i++) {
+    result = mergeConfigs(result, configs[i]);
   }
 
   return result;
 }
 
 /**
- * Merge a partial config into the result (mutates result)
+ * Merge two SanityConfigs. Base is the lower-priority config, override is higher-priority.
  */
-function mergeInto(target: SanityConfig, source: Partial<SanityConfig>): void {
-  // Merge permissions
-  if (source.permissions) {
-    if (source.permissions.read) {
-      target.permissions.read = mergePermissionSection(
-        target.permissions.read,
-        source.permissions.read,
-      );
-    }
-    if (source.permissions.write) {
-      target.permissions.write = mergePermissionSection(
-        target.permissions.write,
-        source.permissions.write,
-      );
-    }
-    if (source.permissions.delete) {
-      target.permissions.delete = mergePermissionSection(
-        target.permissions.delete,
-        source.permissions.delete,
-      );
-    }
+export function mergeConfigs(base: SanityConfig, override: SanityConfig): SanityConfig {
+  const result: SanityConfig = {
+    permissions: {
+      read: mergePermissionSection(base.permissions.read, override.permissions.read),
+      write: mergePermissionSection(base.permissions.write, override.permissions.write),
+    },
+    commands: {
+      default_action: override.commands.default_action ?? base.commands.default_action,
+      reason: override.commands.reason ?? base.commands.reason,
+      rules: [],
+    },
+    ask_timeout: override.ask_timeout ?? base.ask_timeout,
+  };
+
+  // Offset override priorities so they always win over base
+  const offset = base.commands.rules.length;
+  for (const rule of base.commands.rules) {
+    result.commands.rules.push(rule);
+  }
+  for (const rule of override.commands.rules) {
+    result.commands.rules.push({ ...rule, priority: rule.priority + offset });
   }
 
-  // Merge ask_timeout (later overrides earlier)
-  if (source.ask_timeout !== undefined) {
-    target.ask_timeout = source.ask_timeout;
-  }
+  // Sort descending by priority (highest first = last-match-wins)
+  result.commands.rules.sort((a, b) => b.priority - a.priority);
 
-  // Merge commands (deep merge per command)
-  if (source.commands) {
-    for (const [name, cmdConfig] of Object.entries(source.commands)) {
-      if (cmdConfig) {
-        target.commands[name] = mergeCommandConfig(
-          target.commands[name],
-          cmdConfig,
-        );
-      }
-    }
-  }
+  return result;
 }
 
 /**
- * Merge permission sections
- * - default/reason: override
- * - overrides: append arrays
+ * Merge permission sections.
  */
 function mergePermissionSection(
   target: PermissionSection,
@@ -306,70 +309,4 @@ function mergePermissionSection(
     reason: source.reason ?? target.reason,
     overrides: [...target.overrides, ...sourceOverrides],
   };
-}
-
-/**
- * Merge command configs
- * - default_action/reason: override
- * - pre_checks: append arrays
- * - positionals: deep merge
- * - options: override (later wins)
- * - flags: deep merge (per flag, later wins)
- */
-function mergeCommandConfig(
-  target: CommandConfig | undefined,
-  source: CommandConfig,
-): CommandConfig {
-  const base: CommandConfig = target ?? {
-    default_action: source.default_action,
-  };
-
-  return {
-    default_action: source.default_action ?? base.default_action,
-    reason: source.reason ?? base.reason,
-    pre_checks: [...(base.pre_checks ?? []), ...(source.pre_checks ?? [])],
-    positionals: mergePositionals(base.positionals, source.positionals),
-    options: { ...base.options, ...source.options },
-    flags: mergeFlags(base.flags, source.flags),
-  };
-}
-
-/**
- * Merge positional configs
- */
-function mergePositionals(
-  target: PositionalConfig | undefined,
-  source: PositionalConfig | undefined,
-): PositionalConfig | undefined {
-  if (!source) return target;
-  if (!target) return source;
-
-  return {
-    default_perm: source.default_perm ?? target.default_perm,
-    overrides: { ...target.overrides, ...source.overrides },
-  };
-}
-
-/**
- * Merge flag configs
- */
-function mergeFlags(
-  target: Record<string, FlagConfig> | undefined,
-  source: Record<string, FlagConfig> | undefined,
-): Record<string, FlagConfig> | undefined {
-  if (!source) return target;
-  if (!target) return source;
-
-  return { ...target, ...source };
-}
-
-/**
- * Get command config, falling back to global default "_" if not found
- * O(1) lookup since aliases are expanded into separate entries
- */
-export function getCommandConfig(
-  config: SanityConfig,
-  commandName: string,
-): CommandConfig | undefined {
-  return config.commands[commandName] ?? config.commands["_"];
 }

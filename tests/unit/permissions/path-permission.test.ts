@@ -5,7 +5,6 @@ import {
   checkPathPermission,
   checkRead,
   checkWrite,
-  checkDelete,
   getDefaultContext,
   type PathContext,
 } from "../../../src/path-permission.js";
@@ -232,24 +231,8 @@ describe("checkWrite", () => {
   });
 });
 
-describe("checkDelete", () => {
-  it("should use permissions.delete configuration", () => {
-    const config = createEmptyConfig();
-    config.permissions.delete.default = "ask";
-    config.permissions.delete.overrides.push({
-      path: ["/etc/**", "/usr/**", "/var/**"],
-      action: "deny",
-      reason: "System directories",
-    });
-
-    const denyResult = checkDelete("/etc/config", config, testContext);
-    assert.strictEqual(denyResult.action, "deny");
-    assert.strictEqual(denyResult.reason, "System directories");
-
-    const askResult = checkDelete("/home/user/file", config, testContext);
-    assert.strictEqual(askResult.action, "ask");
-  });
-});
+// checkDelete tests removed: delete permission has been merged into write.
+// Deletion is now checked against permissions.write, so checkWrite covers it.
 
 describe("getDefaultContext", () => {
   it("should return context with system values", () => {

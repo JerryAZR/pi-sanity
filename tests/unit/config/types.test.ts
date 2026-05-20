@@ -8,7 +8,6 @@ describe("createEmptyConfig", () => {
 
     assert.strictEqual(config.permissions.read.default, "allow");
     assert.strictEqual(config.permissions.write.default, "allow");
-    assert.strictEqual(config.permissions.delete.default, "allow");
   });
 
   it("should create config with empty overrides arrays", () => {
@@ -16,13 +15,13 @@ describe("createEmptyConfig", () => {
 
     assert.deepStrictEqual(config.permissions.read.overrides, []);
     assert.deepStrictEqual(config.permissions.write.overrides, []);
-    assert.deepStrictEqual(config.permissions.delete.overrides, []);
   });
 
-  it("should create config with global default command", () => {
+  it("should create config with global default command action", () => {
     const config = createEmptyConfig();
 
-    assert.strictEqual(config.commands["_"].default_action, "allow");
+    assert.strictEqual(config.commands.default_action, "allow");
+    assert.deepStrictEqual(config.commands.rules, []);
   });
 
   it("should create independent copies (no shared references)", () => {

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import * as os from "os";
-import { checkRead, checkWrite, checkDelete, checkBash, loadDefaultConfig } from "../../../src/index.js";
+import { checkRead, checkWrite, checkBash, loadDefaultConfig } from "../../../src/index.js";
 
 describe("secret paths scenarios", () => {
   const config = loadDefaultConfig();

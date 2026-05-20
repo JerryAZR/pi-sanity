@@ -2,27 +2,23 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import {
   mergeConfigs,
-  getCommandConfig,
+  loadConfigFromString,
+  ConfigParseError,
 } from "../../../src/config-loader.js";
 import { createEmptyConfig } from "../../../src/config-types.js";
-import type { SanityConfig, CommandConfig } from "../../../src/config-types.js";
+import type { SanityConfig } from "../../../src/config-types.js";
 
 describe("mergeConfigs", () => {
   it("should use later config for permission defaults", () => {
     const base = createEmptyConfig();
-    const override: Partial<SanityConfig> = {
-      permissions: {
-        read: { default: "ask", overrides: [] },
-        write: { default: "deny", overrides: [] },
-        delete: { default: "ask", overrides: [] },
-      },
-    };
+    const override = createEmptyConfig();
+    override.permissions.read.default = "ask";
+    override.permissions.write.default = "deny";
 
-    const merged = mergeConfigs([base, override]);
+    const merged = mergeConfigs(base, override);
 
     assert.strictEqual(merged.permissions.read.default, "ask");
     assert.strictEqual(merged.permissions.write.default, "deny");
-    assert.strictEqual(merged.permissions.delete.default, "ask");
   });
 
   it("should append override arrays (not replace)", () => {
@@ -32,66 +28,50 @@ describe("mergeConfigs", () => {
       action: "ask",
     });
 
-    const override: Partial<SanityConfig> = {
-      permissions: {
-        read: {
-          default: "allow",
-          overrides: [{ path: ["/override/**"], action: "deny" }],
-        },
-        write: { default: "allow", overrides: [] },
-        delete: { default: "allow", overrides: [] },
-      },
-    };
+    const override = createEmptyConfig();
+    override.permissions.read.overrides.push({
+      path: ["/override/**"],
+      action: "deny",
+    });
 
-    const merged = mergeConfigs([base, override]);
+    const merged = mergeConfigs(base, override);
 
     assert.strictEqual(merged.permissions.read.overrides.length, 2);
     assert.deepStrictEqual(merged.permissions.read.overrides[0].path, ["/base/**"]);
     assert.deepStrictEqual(merged.permissions.read.overrides[1].path, ["/override/**"]);
   });
 
-  it("should deep merge command configs", () => {
+  it("should merge command rules with priority offset (override wins)", () => {
     const base = createEmptyConfig();
-    base.commands["cp"] = {
-      default_action: "allow",
-      pre_checks: [{ env: "USER", match: "root", action: "deny" }],
-    };
+    base.commands.rules.push(
+      { name: "cp", priority: 0, action: "allow", config: {} },
+      { name: "mv", priority: 1, action: "ask", config: {} },
+    );
 
-    const override: Partial<SanityConfig> = {
-      permissions: {
-        read: { default: "allow", overrides: [] },
-        write: { default: "allow", overrides: [] },
-        delete: { default: "allow", overrides: [] },
-      },
-      commands: {
-        cp: {
-          default_action: "ask",
-          pre_checks: [{ env: "PWD", match: "/tmp", action: "ask" }],
-        } as CommandConfig,
-      },
-    };
+    const override = createEmptyConfig();
+    override.commands.rules.push(
+      { name: "cp", priority: 0, action: "deny", config: {} },
+    );
 
-    const merged = mergeConfigs([base, override]);
-    const cp = merged.commands["cp"];
+    const merged = mergeConfigs(base, override);
 
-    assert.strictEqual(cp.default_action, "ask"); // Overridden
-    assert.strictEqual(cp.pre_checks?.length, 2); // Both pre-checks
+    // Override cp has higher priority (0 + 2 = 2) than base cp (0)
+    const cpRule = merged.commands.rules.find(r => r.name === "cp" && r.priority === 2);
+    assert.ok(cpRule);
+    assert.strictEqual(cpRule.action, "deny");
+
+    // mv still present
+    assert.ok(merged.commands.rules.some(r => r.name === "mv"));
   });
 
-  it("should merge ask_timeout (later overrides earlier)", () => {
+  it("should override ask_timeout", () => {
     const base = createEmptyConfig();
     base.ask_timeout = 30;
 
-    const override: Partial<SanityConfig> = {
-      permissions: {
-        read: { default: "allow", overrides: [] },
-        write: { default: "allow", overrides: [] },
-        delete: { default: "allow", overrides: [] },
-      },
-      ask_timeout: 60,
-    };
+    const override = createEmptyConfig();
+    override.ask_timeout = 60;
 
-    const merged = mergeConfigs([base, override]);
+    const merged = mergeConfigs(base, override);
     assert.strictEqual(merged.ask_timeout, 60);
   });
 
@@ -99,115 +79,125 @@ describe("mergeConfigs", () => {
     const base = createEmptyConfig();
     base.ask_timeout = 45;
 
-    const override: Partial<SanityConfig> = {
-      permissions: {
-        read: { default: "deny", overrides: [] },
-        write: { default: "allow", overrides: [] },
-        delete: { default: "allow", overrides: [] },
-      },
-      // ask_timeout intentionally omitted
-    };
+    const override = createEmptyConfig();
+    // ask_timeout omitted
 
-    const merged = mergeConfigs([base, override]);
+    const merged = mergeConfigs(base, override);
     assert.strictEqual(merged.ask_timeout, 45);
   });
 
-  it("should add new commands from later configs", () => {
+  it("should sort rules by priority descending after merge", () => {
     const base = createEmptyConfig();
-    const override: Partial<SanityConfig> = {
-      permissions: {
-        read: { default: "allow", overrides: [] },
-        write: { default: "allow", overrides: [] },
-        delete: { default: "allow", overrides: [] },
-      },
-      commands: {
-        custom: {
-          default_action: "deny",
-          reason: "Custom command",
-        } as CommandConfig,
-      },
-    };
+    base.commands.rules.push(
+      { name: "git", priority: 0, action: "allow", config: {} },
+    );
 
-    const merged = mergeConfigs([base, override]);
+    const override = createEmptyConfig();
+    override.commands.rules.push(
+      { name: "npm", priority: 0, action: "deny", config: {} },
+    );
 
-    assert.strictEqual(merged.commands["custom"].default_action, "deny");
-  });
+    const merged = mergeConfigs(base, override);
 
-  it("should allow aliases to diverge independently after expansion", () => {
-    // Simulate pre-expanded configs (aliases already processed)
-    const base: Partial<SanityConfig> = {
-      permissions: {
-        read: { default: "allow", overrides: [] },
-        write: { default: "allow", overrides: [] },
-        delete: { default: "allow", overrides: [] },
-      },
-      commands: {
-        npm: { default_action: "allow" },
-        pnpm: { default_action: "allow" }, // expanded alias
-      },
-    };
-
-    // Later config overrides just the alias
-    const override: Partial<SanityConfig> = {
-      permissions: {
-        read: { default: "allow", overrides: [] },
-        write: { default: "allow", overrides: [] },
-        delete: { default: "allow", overrides: [] },
-      },
-      commands: {
-        pnpm: { default_action: "deny", reason: "Custom pnpm rule" },
-      },
-    };
-
-    const merged = mergeConfigs([base, override]);
-
-    assert.strictEqual(merged.commands["npm"].default_action, "allow"); // Unchanged
-    assert.strictEqual(merged.commands["pnpm"].default_action, "deny"); // Overridden
-    assert.strictEqual(merged.commands["pnpm"].reason, "Custom pnpm rule");
+    // npm has priority 0 + 1 = 1, git has priority 0
+    // Sorted descending: npm first, then git
+    assert.strictEqual(merged.commands.rules[0].name, "npm");
+    assert.strictEqual(merged.commands.rules[1].name, "git");
   });
 });
 
-describe("getCommandConfig", () => {
-  it("should return exact match", () => {
-    const config = createEmptyConfig();
-    config.commands["cp"] = { default_action: "ask" };
+describe("loadConfigFromString", () => {
+  it("should parse [[commands.rules]] array", () => {
+    const toml = `
+[commands]
+default = "allow"
 
-    const result = getCommandConfig(config, "cp");
+[[commands.rules]]
+names = ["cp", "mv"]
+action = "ask"
 
-    assert.strictEqual(result?.default_action, "ask");
+[[commands.rules]]
+names = ["rm"]
+action = "deny"
+`;
+    const config = loadConfigFromString(toml);
+
+    assert.strictEqual(config.commands.default_action, "allow");
+    assert.strictEqual(config.commands.rules.length, 3); // cp, mv, rm
+    assert.ok(config.commands.rules.some(r => r.name === "cp" && r.action === "ask"));
+    assert.ok(config.commands.rules.some(r => r.name === "mv" && r.action === "ask"));
+    assert.ok(config.commands.rules.some(r => r.name === "rm" && r.action === "deny"));
   });
 
-  it("should return O(1) lookup for expanded aliases", () => {
-    // Aliases are expanded into separate entries during load
-    const config = createEmptyConfig();
-    config.commands["cp"] = { default_action: "allow" };
-    config.commands["copy"] = { default_action: "allow" }; // expanded alias
+  it("should flatten names into separate rules", () => {
+    const toml = `
+[[commands.rules]]
+names = ["npm", "pnpm"]
+flags = [{ flag = "-g", action = "deny" }]
+`;
+    const config = loadConfigFromString(toml);
 
-    const result = getCommandConfig(config, "copy");
-
-    assert.strictEqual(result?.default_action, "allow");
+    assert.strictEqual(config.commands.rules.length, 2);
+    assert.ok(config.commands.rules.some(r => r.name === "npm"));
+    assert.ok(config.commands.rules.some(r => r.name === "pnpm"));
   });
 
-  it("should fall back to global default (_) if not found", () => {
-    const config = createEmptyConfig();
-    config.commands["_"] = { default_action: "deny", reason: "Unknown" };
+  it("should handle names = [''] as catch-all clearing rules", () => {
+    const toml = `
+[commands]
+default = "allow"
 
-    const result = getCommandConfig(config, "unknown-command");
+[[commands.rules]]
+names = ["cp"]
+action = "ask"
 
-    assert.strictEqual(result?.default_action, "deny");
-    assert.strictEqual(result?.reason, "Unknown");
+[[commands.rules]]
+names = [""]
+action = "deny"
+`;
+    const config = loadConfigFromString(toml);
+
+    // Catch-all clears all previous rules
+    assert.strictEqual(config.commands.rules.length, 0);
+    assert.strictEqual(config.commands.default_action, "deny");
   });
 
-  it("should allow overriding specific aliases independently", () => {
-    const config = createEmptyConfig();
-    config.commands["cp"] = { default_action: "allow" };
-    config.commands["copy"] = { default_action: "ask", reason: "Prefer cp" };
+  it("should throw ConfigParseError for old [commands.NAME] format", () => {
+    const toml = `
+[commands.cp]
+default_action = "allow"
+`;
+    assert.throws(
+      () => loadConfigFromString(toml),
+      (err: any) => {
+        assert.ok(err instanceof ConfigParseError);
+        assert.ok(err.message.includes("old command rule format"));
+        assert.ok(err.message.includes("/skill:sanity-config"));
+        return true;
+      },
+    );
+  });
 
-    const cpResult = getCommandConfig(config, "cp");
-    const copyResult = getCommandConfig(config, "copy");
+  it("should parse permissions", () => {
+    const toml = `
+[permissions.read]
+default = "deny"
 
-    assert.strictEqual(cpResult?.default_action, "allow");
-    assert.strictEqual(copyResult?.default_action, "ask");
-    assert.strictEqual(copyResult?.reason, "Prefer cp");
+[[permissions.read.overrides]]
+path = ["/safe/**"]
+action = "allow"
+`;
+    const config = loadConfigFromString(toml);
+
+    assert.strictEqual(config.permissions.read.default, "deny");
+    assert.strictEqual(config.permissions.read.overrides.length, 1);
+    assert.deepStrictEqual(config.permissions.read.overrides[0].path, ["/safe/**"]);
+    assert.strictEqual(config.permissions.read.overrides[0].action, "allow");
+  });
+
+  it("should parse ask_timeout", () => {
+    const toml = `ask_timeout = 45`;
+    const config = loadConfigFromString(toml);
+    assert.strictEqual(config.ask_timeout, 45);
   });
 });
