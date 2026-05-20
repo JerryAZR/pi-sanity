@@ -74,7 +74,7 @@ describe("checkRead with default config", () => {
 
     it("should allow reading pi documentation from node_modules", () => {
       const result = checkRead(
-        `${home}/.nvm/versions/node/v24.14.1/lib/node_modules/@mariozechner/pi-coding-agent/docs/providers.md`,
+        `${home}/.nvm/versions/node/v24.14.1/lib/node_modules/@earendil-works/pi-coding-agent/docs/providers.md`,
         config
       );
       assert.strictEqual(result.action, "allow");

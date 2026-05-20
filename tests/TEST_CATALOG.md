@@ -307,7 +307,7 @@ This document catalogs ALL tests in the project, organized for refactoring.
 | 15.5 | `checkRead()` | `~/.local/share/applications/app.desktop` | `action: "ask"` |
 | 15.6 | `checkRead()` | `~/.cache/npm/content/file` | `action: "ask"` |
 | 15.7 | `checkRead()` | `~/.nvm/versions/node/v20.0.0/lib/node_modules/@types/node/index.d.ts` | `action: "allow"` (node_modules exception) |
-| 15.8 | `checkRead()` | `~/.nvm/versions/node/v24.14.1/lib/node_modules/@mariozechner/pi-coding-agent/docs/providers.md` | `action: "allow"` |
+| 15.8 | `checkRead()` | `~/.nvm/versions/node/v24.14.1/lib/node_modules/@earendil-works/pi-coding-agent/docs/providers.md` | `action: "allow"` |
 | 15.9 | `checkRead()` | `~/Documents/file.txt` | `action: "allow"` |
 | 15.10 | `checkRead()` | `~/Downloads/file.zip` | `action: "allow"` |
 
