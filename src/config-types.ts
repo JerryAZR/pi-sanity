@@ -29,7 +29,7 @@ export interface PreCheck {
 }
 
 export interface PositionalConfig {
-  default_perm: string[]; // e.g. ["read"], ["read", "write"], or [] for none
+  default_perm?: string[]; // e.g. ["read"], ["read", "write"], or [] / omitted for none
   overrides?: Record<string, string[]>; // index -> permission, e.g. { "-1": ["write"] }
 }
 

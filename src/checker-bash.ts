@@ -169,7 +169,7 @@ function checkSingleCommand(
 
   // 5. Positionals — check against index-based overrides
   if (rule.config.positionals) {
-    const { default_perm, overrides } = rule.config.positionals;
+    const { default_perm = [], overrides } = rule.config.positionals;
     for (let i = 0; i < parsed.positionals.length; i++) {
       const { value, originalIndex } = parsed.positionals[i];
       const indexStr = String(i);
@@ -181,7 +181,7 @@ function checkSingleCommand(
         else if (overrides[indexStr]) perm = overrides[indexStr];
       }
 
-      if (perm.length === 0) continue;
+      if (!perm || perm.length === 0) continue;
       if (cmd.dynamicIndices.has(originalIndex)) continue;
 
       for (const p of perm) {

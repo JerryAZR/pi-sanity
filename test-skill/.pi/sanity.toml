@@ -1,5 +1,0 @@
-# Test config: allow writes to the parent directory
-[[permissions.write.overrides]]
-path = ["{{CWD}}/../*"]
-action = "allow"
-reason = "Test: allow writes to parent directory"

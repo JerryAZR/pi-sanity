@@ -300,6 +300,26 @@ describe("arg parsing — plain commands", () => {
       assert.strictEqual(result.action, "deny");
     });
 
+    it("should handle positionals with overrides but no default_perm", () => {
+      // Feature: missing default_perm treated as [] (skip un-overridden positionals)
+      // Failure caught: TypeError on undefined default_perm, or default_perm treated as allow
+      //
+      // Setup: only positional 1 is checked (read). Other positionals skipped.
+      const config = makeConfigWithSpecificPath(
+        "cmd",
+        { positionals: { overrides: { "1": ["read"] } } },
+        "read",
+        "/pos1",
+        "deny",
+      );
+      const result = checkBash("cmd /pos0 /pos1 /pos2", config);
+      assert.strictEqual(result.action, "deny");
+
+      // Same config, but no override-matching positional → should allow
+      const result2 = checkBash("cmd /pos0 /other", config);
+      assert.strictEqual(result2.action, "allow");
+    });
+
     it("should skip declared flags from positional counting", () => {
       // Feature: --force declared as flag → skipped, so next arg is positional 0
       // Failure caught: --force counted as positional
