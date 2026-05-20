@@ -130,7 +130,7 @@ You do not need to add these — they are already configured:
 | Command | Behavior |
 |---------|----------|
 | `cat`, `head`, `tail`, `grep`, etc. | Read positionals checked against `permissions.read` |
-| `sed` | Read positionals checked; `sed -i` checks positionals as write paths (allowed in CWD) |
+| `sed` | Read positionals checked; `sed -i` skips the script positional, checks files as write paths |
 | `cp` | Sources read, destination write |
 | `mv` | Sources read+write, destination write |
 | `rm` | Delete checked against `permissions.write` |

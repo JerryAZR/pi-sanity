@@ -88,12 +88,13 @@ positionals = { default_perm = ["read"] }
 
 # sed in-place editing: check file paths against write permissions.
 # Matches "sed -i" and "sed -i ''" (macOS empty backup suffix).
-# All positionals are checked as write paths. The sed script resolves
-# relative to CWD and is typically allowed; actual file paths are checked
-# correctly (allowed in CWD/TMPDIR, denied in system directories).
+# Positional 0 is the sed script (skipped from path checking).
+# Positional 1+ are file paths, checked as write.
+# This avoids checking the script as a path while correctly checking files.
+# Edge case: sed -i file.txt (no script) reads stdin, harmless to skip.
 [[commands.rules]]
 names = ["sed -i"]
-positionals = { default_perm = ["write"] }
+positionals = { default_perm = ["write"], overrides = { "0" = [] } }
 reason = "In-place editing modifies files"
 
 # cp: read sources, write destination
