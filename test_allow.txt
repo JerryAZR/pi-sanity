@@ -1,1 +1,0 @@
-This write was allowed by the custom .pi/sanity.toml config.
