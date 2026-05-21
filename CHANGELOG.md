@@ -7,8 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Added missing `skills` entry to `package.json` `pi` manifest so the `sanity-config` skill is discoverable by pi after installation.
+- Replaced `.npmignore` with a `"files"` whitelist in `package.json` to prevent dev docs and test artifacts from being included in the published npm package.
+
+## [0.4.0] - 2026-05-20
+
+### Breaking Changes
+- **Config format redesigned** from `[commands.NAME]` tables to `[[commands.rules]]` arrays. The old format is no longer supported; configs using `[commands.cp]`, `[commands.rm]`, etc. will be ignored with a warning. Migration guide: use `names = ["cp", "rm"]` in a `[[commands.rules]]` block.
+- **`permissions.delete` removed.** Deletion is now checked against `permissions.write` (deleting a file modifies its parent directory). Remove any `[permissions.delete]` sections from your config.
+
 ### Added
-- **`/sanity-config` prompt template**. Users can type `/sanity-config` followed by any natural language request to modify pi-sanity configuration — whitelist operations, change policies, adjust command rules, etc. The prompt includes the full config syntax for path permissions (`[permissions.read]` / `[[permissions.read.overrides]]`), command rules (`[commands.NAME]` with `pre_checks`, `positionals`, `options`, `flags`), and context variables (`{{HOME}}`, `{{CWD}}`, etc.). The LLM is instructed to make reasonable assumptions and not ask for clarification unless genuinely ambiguous. Registered automatically via `resources_discover`.
+- **`/skill:sanity-config` skill** for LLM-assisted config management. Type `/skill:sanity-config` followed by any natural language request to add rules, change permissions, or adjust safety policies. Includes a cheatsheet, full spec reference, and built-in defaults table.
+- **`--option=value` support.** Long options with equals separators (e.g. `cp --target-directory=/foo src dest`) are now correctly extracted and checked against permissions.
+- **`--` end-of-options marker.** Everything after `--` is treated as positional (e.g. `rm -- -f file.txt` correctly handles `-f` as a filename).
+- **New default rules:**
+  - `sed -i`: checks file positionals as write paths. Allows in-place edits in CWD, denies system paths.
+  - `git clean -f` / `--force`: asks before removing untracked files. `git clean` without flags remains allowed.
+- **`names = [""]` catch-all** to discard inherited rules. Place at the beginning of a rules list to clear all previous rules and set a new default action.
+
+### Changed
+- **Command rules use prefix matching.** `names = ["git push"]` matches `git push origin main` but not `github`.
+- **`action` is optional** per rule. Rules with only `positionals`, `flags`, or `options` no longer need `action = "allow"`.
+- **Flags format changed** from inline table to array: `flags = [{ flag = "-f", action = "ask" }]`.
+- **Permission values are arrays:** `["read"]`, `["write"]`, `["read", "write"]`.
+- **Dependency updated:** `@mariozechner/pi-coding-agent` → `@earendil-works/pi-coding-agent`.
+
+### Fixed
+- `README` no longer references `permissions.delete`. `CONFIG.md` link updated (moved to `skills/sanity-config/references/`).
+
+## [0.3.0] - 2026-04-28
 
 ## [0.3.0] - 2026-04-28
 
@@ -94,7 +122,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 350+ test cases covering core functionality
 - Comprehensive documentation (README, CONFIG.md, LIMITATIONS.md)
 
-[Unreleased]: https://github.com/JerryAZR/pi-sanity/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/JerryAZR/pi-sanity/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/JerryAZR/pi-sanity/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.0...v0.2.1

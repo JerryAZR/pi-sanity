@@ -1,6 +1,6 @@
 {
   "name": "@jerryan/pi-sanity",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Pi extension for sanity checks on agent operations",
   "type": "module",
   "license": "Apache-2.0",
@@ -33,6 +33,12 @@
     },
     "./extension": "./dist/extension.js"
   },
+  "files": [
+    "dist/src",
+    "dist/extension.js",
+    "dist/extension.d.ts",
+    "skills"
+  ],
   "engines": {
     "node": ">=22.0.0"
   },
@@ -62,6 +68,9 @@
   "pi": {
     "extensions": [
       "./dist/extension.js"
+    ],
+    "skills": [
+      "./skills"
     ]
   }
 }

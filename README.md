@@ -1,6 +1,6 @@
 # Pi-Sanity
 
-A [Pi](https://shittycodingagent.ai/) extension that adds sanity checks to agent operations. It acts as a configurable safety net to prevent accidental file modifications and catch potentially dangerous commands before they execute.
+A [Pi](https://pi.dev/) extension that adds sanity checks to agent operations. It acts as a configurable safety net to prevent accidental file modifications and catch potentially dangerous commands before they execute.
 
 > ⚠️ **IMPORTANT SAFETY DISCLAIMER**
 >
@@ -139,7 +139,7 @@ reason = "Never delete credential files"
 
 ## Configuration Reference
 
-See [CONFIG.md](CONFIG.md) for complete documentation of:
+See [skills/sanity-config/references/CONFIG.md](skills/sanity-config/references/CONFIG.md) for complete documentation of:
 
 - Permission sections (read, write)
 - Path patterns and variable expansion
