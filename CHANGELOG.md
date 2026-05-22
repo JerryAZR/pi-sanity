@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-05-22
+
 ### Fixed
 - Added missing `skills` entry to `package.json` `pi` manifest so the `sanity-config` skill is discoverable by pi after installation.
 - Replaced `.npmignore` with a `"files"` whitelist in `package.json` to prevent dev docs and test artifacts from being included in the published npm package.
@@ -122,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 350+ test cases covering core functionality
 - Comprehensive documentation (README, CONFIG.md, LIMITATIONS.md)
 
-[Unreleased]: https://github.com/JerryAZR/pi-sanity/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/JerryAZR/pi-sanity/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/JerryAZR/pi-sanity/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/JerryAZR/pi-sanity/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.1...v0.2.2
