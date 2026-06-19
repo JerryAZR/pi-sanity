@@ -13,6 +13,9 @@
     "url": "https://github.com/JerryAZR/pi-sanity/issues"
   },
   "homepage": "https://github.com/JerryAZR/pi-sanity#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
   "keywords": [
     "pi",
     "pi-extension",
