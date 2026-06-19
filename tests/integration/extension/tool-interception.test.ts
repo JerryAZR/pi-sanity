@@ -98,19 +98,18 @@ describe("extension tool interception", () => {
       assert.ok(result.reason, "Should include reason");
     });
 
-    it("should block when path is missing", async () => {
+    it("should pass through read when path is missing", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
-      
+
       const event = {
         toolName: "read",
         input: {},
       };
-      
+
       const result = await pi.__simulateToolCall(event, createMockContext());
-      
-      assert.ok(result && result.block === true, "Should block when path is missing");
-      assert.ok(result.reason, "Should include reason");
+
+      assert.strictEqual(result, undefined, "Should not block when path is missing; let framework validate");
     });
   });
 
@@ -144,6 +143,19 @@ describe("extension tool interception", () => {
       assert.ok(result.reason, "Should include reason");
     });
   });
+    it("should pass through write when path is missing", async () => {
+      const { pi } = createMockPi();
+      extension(pi as ExtensionAPI);
+
+      const event = {
+        toolName: "write",
+        input: {},
+      };
+
+      const result = await pi.__simulateToolCall(event, createMockContext());
+
+      assert.strictEqual(result, undefined, "Should not block when path is missing; let framework validate");
+    });
 
   describe("edit tool", () => {
     it("should allow editing allowed files", async () => {
@@ -173,8 +185,21 @@ describe("extension tool interception", () => {
       
       assert.ok(result && result.block === true, "Should return block: true");
     });
-  });
 
+    it("should pass through edit when path is missing", async () => {
+      const { pi } = createMockPi();
+      extension(pi as ExtensionAPI);
+
+      const event = {
+        toolName: "edit",
+        input: {},
+      };
+
+      const result = await pi.__simulateToolCall(event, createMockContext());
+
+      assert.strictEqual(result, undefined, "Should not block when path is missing; let framework validate");
+    });
+  });
   describe("bash tool", () => {
     it("should allow safe commands", async () => {
       const { pi } = createMockPi();
@@ -219,19 +244,18 @@ describe("extension tool interception", () => {
       assert.ok(result && result.block === true, "Should return block: true for parse errors");
     });
 
-    it("should block when command is missing", async () => {
+    it("should pass through bash when command is missing", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
-      
+
       const event = {
         toolName: "bash",
         input: {},
       };
-      
+
       const result = await pi.__simulateToolCall(event, createMockContext());
-      
-      assert.ok(result && result.block === true, "Should block when command is missing");
-      assert.ok(result.reason, "Should include reason");
+
+      assert.strictEqual(result, undefined, "Should not block when command is missing; let framework validate");
     });
   });
 
