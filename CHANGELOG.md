@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-05-22
+
+### Fixed
+- Don't reject read/write/edit/bash when required fields are missing; return undefined so the framework handles input validation.
+
 ## [0.4.1] - 2026-05-22
 
 ### Fixed
@@ -37,9 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `README` no longer references `permissions.delete`. `CONFIG.md` link updated (moved to `skills/sanity-config/references/`).
-
-## [0.3.0] - 2026-04-28
-
 ## [0.3.0] - 2026-04-28
 
 ### Added
@@ -124,9 +126,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 350+ test cases covering core functionality
 - Comprehensive documentation (README, CONFIG.md, LIMITATIONS.md)
 
-[Unreleased]: https://github.com/JerryAZR/pi-sanity/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/JerryAZR/pi-sanity/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/JerryAZR/pi-sanity/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/JerryAZR/pi-sanity/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/JerryAZR/pi-sanity/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/JerryAZR/pi-sanity/compare/v0.2.0...v0.2.1
