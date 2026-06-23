@@ -8,7 +8,10 @@ function createMockUI() {
   return {
     notify: (message: string, type: string) => {},
     select: (title: string, options: string[], opts?: any) => {
-      return Promise.resolve("Block");
+      return Promise.resolve("Block — agent continues its turn");
+    },
+    input: (title: string, placeholder?: string, opts?: any) => {
+      return Promise.resolve(undefined);
     },
     setStatus: (key: string, text: string | undefined) => {},
     setWidget: (key: string, content: string[] | ((tui: any, theme: any) => any) | undefined, options?: any) => {},
@@ -287,7 +290,8 @@ describe("extension tool interception", () => {
         assert.ok(title.includes("Pi-Sanity"), "Title should be Pi-Sanity");
         assert.ok(options.some(o => o.includes("Allow")), "Options should include Allow");
         assert.ok(options.some(o => o.includes("Block — agent continues its turn")), "Options should include Block");
-        assert.ok(options.some(o => o.includes("Block & stop — I'll explain in chat")), "Options should include Block & stop");
+        assert.ok(options.some(o => o.includes("Block with reason…")), "Options should include Block with reason");
+        assert.ok(!options.some(o => o.includes("Block & stop")), "Options should not include Block & stop");
         assert.ok(opts && typeof opts.timeout === "number", "Should pass timeout option");
         assert.ok(opts.timeout > 0, "Timeout should be positive");
         return Promise.resolve("Allow");
@@ -322,12 +326,13 @@ describe("extension tool interception", () => {
       assert.ok(result.reason.endsWith("(blocked by user)"), "Reason should indicate user blocked it without encouraging workarounds");
     });
 
-    it("should select 'Block & stop' to tell agent to wait for instructions", async () => {
+    it("should select 'Block with reason' and use the typed text verbatim", async () => {
       const { pi } = createMockPi();
       extension(pi as ExtensionAPI);
 
       const ctx = createMockContext(true);
-      ctx.ui.select = () => Promise.resolve("Block & stop — I'll explain in chat");
+      ctx.ui.select = () => Promise.resolve("Block with reason…");
+      ctx.ui.input = () => Promise.resolve("that path is off-limits here");
 
       const event = {
         toolName: "read",
@@ -336,8 +341,46 @@ describe("extension tool interception", () => {
 
       const result = await pi.__simulateToolCall(event, ctx);
 
-      assert.ok(result && result.block === true, "Should block when user selects Block & stop");
-      assert.ok(result.reason.includes("stop and wait for user instructions"), "Reason should tell agent to wait for instructions");
+      assert.ok(result && result.block === true, "Should block when user selects Block with reason");
+      assert.strictEqual(result.reason, "that path is off-limits here", "Reason should be the user's custom text verbatim");
+    });
+
+    it("should fall back to default reason when 'Block with reason' input is cancelled (Esc)", async () => {
+      const { pi } = createMockPi();
+      extension(pi as ExtensionAPI);
+
+      const ctx = createMockContext(true);
+      ctx.ui.select = () => Promise.resolve("Block with reason…");
+      ctx.ui.input = () => Promise.resolve(undefined);
+
+      const event = {
+        toolName: "read",
+        input: { path: "~/.aws/credentials" },
+      };
+
+      const result = await pi.__simulateToolCall(event, ctx);
+
+      assert.ok(result && result.block === true, "Should still block when input is cancelled");
+      assert.ok(result.reason.endsWith("(blocked by user)"), "Esc should fall back to the default block reason");
+    });
+
+    it("should fall back to default reason when 'Block with reason' input is empty", async () => {
+      const { pi } = createMockPi();
+      extension(pi as ExtensionAPI);
+
+      const ctx = createMockContext(true);
+      ctx.ui.select = () => Promise.resolve("Block with reason…");
+      ctx.ui.input = () => Promise.resolve("   ");
+
+      const event = {
+        toolName: "read",
+        input: { path: "~/.aws/credentials" },
+      };
+
+      const result = await pi.__simulateToolCall(event, ctx);
+
+      assert.ok(result && result.block === true, "Should still block when input is empty");
+      assert.ok(result.reason.endsWith("(blocked by user)"), "Empty input should fall back to the default block reason");
     });
 
     it("should block on dismiss (no selection) with alternative hint", async () => {

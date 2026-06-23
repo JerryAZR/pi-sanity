@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Confirmation dialog simplified to 3 options:** `Allow`, `Block — agent continues its turn`, and `Block with reason…`. The previous `Block & stop — I'll explain in chat` option is removed.
+
+### Added
+- **`Block with reason…`** opens a free-text input where the user can type a custom rejection message, sent to the agent verbatim as the block reason. Esc or empty submit falls back to the default `"… (blocked by user)"` reason — the operation stays blocked either way. No timeout on the input (it's opt-in; a user who walked away won't choose it).
+
 ## [0.4.2] - 2026-05-22
 
 ### Fixed

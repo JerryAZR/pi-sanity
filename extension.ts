@@ -14,10 +14,12 @@ import {
 } from "./src/index.js";
 import type { SanityConfig } from "./src/config-types.js";
 
-// Choice labels shown in the select dialog — must match exactly
+// Choice labels shown in the select dialog — must match exactly.
+// The "agent continues its turn" suffix is intentional: in some other agents
+// "Block" means stop. Pi keeps the turn running, and the label makes that clear.
 const CHOICE_ALLOW = "Allow";
-const CHOICE_BLOCK = "Block — agent continues its turn";
-const CHOICE_BLOCK_STOP = "Block & stop — I'll explain in chat";
+const CHOICE_BLOCK_CONTINUE = "Block — agent continues its turn";
+const CHOICE_BLOCK_REASON = "Block with reason…";
 
 export default function (pi: ExtensionAPI) {
   // Load configuration with lazy reload on file changes
@@ -142,7 +144,7 @@ export default function (pi: ExtensionAPI) {
 
       const choice = await ctx.ui.select(
         title,
-        [CHOICE_ALLOW, CHOICE_BLOCK, CHOICE_BLOCK_STOP],
+        [CHOICE_ALLOW, CHOICE_BLOCK_CONTINUE, CHOICE_BLOCK_REASON],
         { timeout: timeoutMs }
       );
 
@@ -151,19 +153,23 @@ export default function (pi: ExtensionAPI) {
         return undefined;
       }
 
-      if (choice === CHOICE_BLOCK_STOP) {
-        // User wants to stop and explain. Tell the agent to halt and wait
-        // for the user's next message.
-        return {
-          block: true,
-          reason: `${reason} (blocked by user — stop and wait for user instructions)`,
-        };
+      if (choice === CHOICE_BLOCK_REASON) {
+        // User chose to provide a custom rejection reason. Opt-in, no
+        // timeout: a user who walked away won't select this branch. Esc or
+        // empty submit falls back to the default block reason (the operation
+        // is still blocked — Esc never un-blocks).
+        const custom = await ctx.ui.input("Reason for blocking (Esc to skip)");
+        const trimmed = custom?.trim();
+        if (trimmed) {
+          return { block: true, reason: trimmed };
+        }
       }
 
-      // "Block" (without stopping): the agent turn continues. The agent
-      // receives a tool failure and should report it to the user rather than
-      // silently trying workarounds. Also applies when dialog is dismissed
-      // or times out.
+      // "Block — agent continues its turn": the agent turn continues. The
+      // agent receives a tool failure and should report it to the user
+      // rather than silently trying workarounds. Also applies when the
+      // dialog is dismissed/timed out, or when the custom-reason input was
+      // skipped (Esc / empty).
       return {
         block: true,
         reason: `${reason} (blocked by user)`,
