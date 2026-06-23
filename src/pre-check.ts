@@ -25,7 +25,7 @@
 
 import * as path from "node:path";
 import type { Action } from "./config-types.js";
-
+import { stricterAction } from "./action-utils.js";
 export interface PreCheckResult {
   action: Action;
   reason?: string;
@@ -144,18 +144,6 @@ export function evaluatePreCheck(
   };
 }
 
-/**
- * Action priority for comparison
- */
-const ACTION_PRIORITY: Record<Action, number> = {
-  allow: 0,
-  ask: 1,
-  deny: 2,
-};
-
-function stricterAction(a: Action, b: Action): Action {
-  return ACTION_PRIORITY[a] >= ACTION_PRIORITY[b] ? a : b;
-}
 
 /**
  * Evaluate multiple pre-checks and return strictest action

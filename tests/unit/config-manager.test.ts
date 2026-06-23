@@ -18,6 +18,47 @@ describe("ConfigManager", () => {
   });
 
   describe("initial load", () => {
+    it("should merge default tool rules with project tool rules", () => {
+      const configPath = path.join(tmpDir, ".pi", "sanity.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(
+        configPath,
+        '[[tools.rules]]\nnames = ["custom"]\nchecks = [{ param = "target", check = "write" }]\n',
+        "utf-8",
+      );
+
+      const manager = new ConfigManager(tmpDir);
+      const config = manager.get();
+
+      // Default tools from embedded config survive
+      assert.ok(config.tools.rules.has("read"));
+      assert.ok(config.tools.rules.has("write"));
+      assert.ok(config.tools.rules.has("bash"));
+
+      // Project tool rule is merged in
+      assert.ok(config.tools.rules.has("custom"));
+      assert.deepStrictEqual(config.tools.rules.get("custom"), [
+        { param: "target", check: "write" },
+      ]);
+    });
+
+    it("should let project tool rules override default tool rules", () => {
+      const configPath = path.join(tmpDir, ".pi", "sanity.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(
+        configPath,
+        '[[tools.rules]]\nnames = ["read"]\nchecks = [{ param = "file", check = "write" }]\n',
+        "utf-8",
+      );
+
+      const manager = new ConfigManager(tmpDir);
+      const config = manager.get();
+
+      assert.deepStrictEqual(config.tools.rules.get("read"), [
+        { param: "file", check: "write" },
+      ]);
+    });
+
     it("should load default config when no project config exists", () => {
       const manager = new ConfigManager(tmpDir);
       const config = manager.get();

@@ -164,3 +164,32 @@ flags = [
 names = ["winget", "scoop", "choco", "flatpak"]
 action = "deny"
 reason = "System packages should not be manipulated during project development"
+
+
+# ============================================================================
+# Tool Rules
+# ============================================================================
+# Map Pi tool names to parameter checks. Rules are checked in array order;
+# later rules overwrite earlier ones for the same tool name (last-match-wins).
+#
+# `check` selects the permission domain to use:
+#   "read"  -> checked against [permissions.read]
+#   "write" -> checked against [permissions.write]
+#   "bash"  -> checked against [commands]
+#
+# Parameter values may be strings or arrays of strings. Missing/empty params
+# are skipped so the framework handles required-argument validation.
+
+[tools]
+
+[[tools.rules]]
+names = ["read"]
+checks = [{ param = "path", check = "read" }]
+
+[[tools.rules]]
+names = ["write", "edit"]
+checks = [{ param = "path", check = "write" }]
+
+[[tools.rules]]
+names = ["bash"]
+checks = [{ param = "command", check = "bash" }]

@@ -7,9 +7,8 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
-  checkRead,
-  checkWrite,
-  checkBash,
+  checkToolCall,
+  buildToolDetails,
   ConfigManager,
 } from "./src/index.js";
 import type { SanityConfig } from "./src/config-types.js";
@@ -69,37 +68,8 @@ export default function (pi: ExtensionAPI) {
   pi.on("tool_call", async (event, ctx) => {
     const config = refreshConfig(ctx);
 
-    // Only handle built-in tools we care about
-    if (!["read", "write", "edit", "bash"].includes(event.toolName)) {
-      return undefined;
-    }
-
-    let result;
-
-    switch (event.toolName) {
-      case "read": {
-        const path = event.input.path as string;
-        if (!path) return undefined;
-        result = checkRead(path, config);
-        break;
-      }
-
-      case "write":
-      case "edit": {
-        const path = event.input.path as string;
-        if (!path) return undefined;
-        result = checkWrite(path, config);
-        break;
-      }
-
-      case "bash": {
-        const command = event.input.command as string;
-        if (!command) return undefined;
-        result = checkBash(command, config);
-        break;
-      }
-    }
-    // Handle different actions
+    // Check against configured tool rules. Unlisted tools pass through.
+    const result = checkToolCall(event.toolName, event.input, config);
     if (!result) {
       return undefined;
     }
@@ -121,25 +91,8 @@ export default function (pi: ExtensionAPI) {
         return { block: true, reason: `${reason} (no UI available)` };
       }
 
-      // Build message showing what action is being attempted
-      let actionDetails = "";
-      switch (event.toolName) {
-        case "read":
-          actionDetails = `Read file: ${event.input.path}`;
-          break;
-        case "write":
-          actionDetails = `Write file: ${event.input.path}`;
-          break;
-        case "edit":
-          actionDetails = `Edit file: ${event.input.path}`;
-          break;
-        case "bash":
-          actionDetails = `Run command: ${event.input.command}`;
-          break;
-      }
-
+      const actionDetails = buildToolDetails(event.toolName, event.input, config);
       const timeoutMs = (config.ask_timeout ?? 30) * 1000;
-
       const title = `Pi-Sanity\n\n${reason}\n${actionDetails}`;
 
       const choice = await ctx.ui.select(

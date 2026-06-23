@@ -113,7 +113,12 @@ export function parseArgs(
         continue;
       }
 
-      // Scan characters left-to-right
+      // Scan characters left-to-right.
+      // Note: if a declared option appears before later flags in the same
+      // combined token (e.g. -fr value where -f is an option and -r is a
+      // flag), we break at the option and consume the next argument as its
+      // value; the trailing flags are NOT processed. The common convention
+      // is to write the option last (e.g. -rf value), which works correctly.
       const chars = arg.slice(1).split("");
       let consumedNext = false;
       for (let ci = 0; ci < chars.length; ci++) {

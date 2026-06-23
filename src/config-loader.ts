@@ -14,6 +14,8 @@ import type {
   Rule,
   RuleConfig,
   SanityConfig,
+  ToolParamCheck,
+  ToolsConfig,
 } from "./config-types.js";
 import { DEFAULT_CONFIG_CONTENT } from "./generated/default-config.js";
 import {
@@ -99,12 +101,17 @@ interface RawCommands {
   rules: any[];
 }
 
+interface RawTools {
+  rules: any[];
+}
+
 interface RawConfig {
   permissions: {
     read: RawPermissionSection;
     write: RawPermissionSection;
   };
   commands: RawCommands;
+  tools: RawTools;
   ask_timeout?: number;
 }
 
@@ -115,6 +122,7 @@ function emptyRawConfig(): RawConfig {
       write: { overrides: [] },
     },
     commands: { rules: [] },
+    tools: { rules: [] },
   };
 }
 
@@ -136,6 +144,9 @@ function parseRawConfig(tomlContent: string): RawConfig {
     commands: {
       ...(parsed.commands ?? {}),
       rules: parsed.commands?.rules ?? [],
+    },
+    tools: {
+      rules: parsed.tools?.rules ?? [],
     },
     ask_timeout: parsed.ask_timeout,
   };
@@ -161,6 +172,9 @@ function mergeRawConfigs(base: RawConfig, override: RawConfig): RawConfig {
       reason: override.commands.reason ?? base.commands.reason,
       rules: [...base.commands.rules, ...override.commands.rules],
     },
+    tools: {
+      rules: [...base.tools.rules, ...override.tools.rules],
+    },
     ask_timeout: override.ask_timeout ?? base.ask_timeout,
   };
 }
@@ -174,6 +188,66 @@ export class ConfigParseError extends Error {
     super(message);
     this.name = "ConfigParseError";
   }
+}
+
+function buildToolsConfig(rawTools: RawTools, sink: WarningSink): ToolsConfig {
+  const rules = new Map<string, ToolParamCheck[]>();
+
+  for (let i = 0; i < rawTools.rules.length; i++) {
+    const rawRule = rawTools.rules[i];
+    if (!rawRule || typeof rawRule !== "object") {
+      sink(`[pi-sanity] Skipping invalid tool rule #${i}: not an object`);
+      continue;
+    }
+    if (!Array.isArray(rawRule.names) || rawRule.names.length === 0) {
+      sink(`[pi-sanity] Skipping invalid tool rule #${i}: missing or invalid 'names' (expected array)`);
+      continue;
+    }
+    if (rawRule.names.includes("")) {
+      sink(`[pi-sanity] Skipping invalid tool rule #${i}: "" is not allowed in tool names`);
+      continue;
+    }
+    if (!Array.isArray(rawRule.checks) || rawRule.checks.length === 0) {
+      sink(`[pi-sanity] Skipping invalid tool rule #${i}: missing or invalid 'checks' (expected array)`);
+      continue;
+    }
+
+    const checks: ToolParamCheck[] = [];
+    for (let j = 0; j < rawRule.checks.length; j++) {
+      const rawCheck = rawRule.checks[j];
+      if (!rawCheck || typeof rawCheck !== "object") {
+        sink(`[pi-sanity] Skipping invalid check #${j} in tool rule #${i}: not an object`);
+        continue;
+      }
+      if (typeof rawCheck.param !== "string" || rawCheck.param.length === 0) {
+        sink(`[pi-sanity] Skipping invalid check #${j} in tool rule #${i}: missing or invalid 'param'`);
+        continue;
+      }
+      if (!["read", "write", "bash"].includes(rawCheck.check)) {
+        sink(`[pi-sanity] Skipping invalid check #${j} in tool rule #${i}: unsupported check "${rawCheck.check}" (expected read, write, or bash)`);
+        continue;
+      }
+      checks.push({
+        param: rawCheck.param,
+        check: rawCheck.check,
+      });
+    }
+
+    if (checks.length === 0) {
+      sink(`[pi-sanity] Skipping tool rule #${i}: no valid checks remain`);
+      continue;
+    }
+
+    for (const name of rawRule.names) {
+      if (typeof name !== "string" || name.length === 0) {
+        sink(`[pi-sanity] Skipping invalid name in tool rule #${i}: expected non-empty string`);
+        continue;
+      }
+      rules.set(name, checks);
+    }
+  }
+
+  return { rules };
 }
 
 function buildSanityConfig(raw: RawConfig, onWarning?: WarningSink): SanityConfig {
@@ -251,6 +325,8 @@ function buildSanityConfig(raw: RawConfig, onWarning?: WarningSink): SanityConfi
   // Rules are already in check order: later source rules first
   // (backwards parsing pushes later rules first, then earlier rules)
 
+  const tools = buildToolsConfig(raw.tools, sink);
+
   const config: SanityConfig = {
     permissions: {
       read: {
@@ -269,6 +345,7 @@ function buildSanityConfig(raw: RawConfig, onWarning?: WarningSink): SanityConfi
       reason,
       rules,
     },
+    tools,
     ask_timeout: raw.ask_timeout,
   };
 

@@ -20,22 +20,7 @@ import { evaluatePreChecks } from "./pre-check.js";
 import { clearlyNotAPath } from "./path-utils.js";
 import type { SanityConfig, Rule, Action } from "./config-types.js";
 import type { CheckResult } from "./types.js";
-
-/**
- * Action priority for comparison (higher = stricter)
- */
-const ACTION_PRIORITY: Record<Action, number> = {
-  allow: 0,
-  ask: 1,
-  deny: 2,
-};
-
-/**
- * Get the stricter of two actions
- */
-function stricterAction(a: Action, b: Action): Action {
-  return ACTION_PRIORITY[a] >= ACTION_PRIORITY[b] ? a : b;
-}
+import { aggregateResults } from "./action-utils.js";
 
 /**
  * Check if a normalized command matches a rule name prefix.
@@ -88,20 +73,7 @@ export function checkBash(command: string, config: SanityConfig): CheckResult {
     return { action: "allow" };
   }
 
-  let strictest = results[0].action;
-  const reasons: string[] = [];
-
-  for (const result of results) {
-    strictest = stricterAction(strictest, result.action);
-    if (result.reason) {
-      reasons.push(result.reason);
-    }
-  }
-
-  return {
-    action: strictest,
-    reason: reasons.length > 0 ? reasons.join("; ") : undefined,
-  };
+  return aggregateResults(results);
 }
 
 /**
@@ -115,7 +87,7 @@ function checkSingleCommand(
   const normalized = commandName + (cmd.args.length > 0 ? " " + cmd.args.join(" ") : "");
   const rule = findMatchingRule(normalized, config.commands.rules);
 
-  const results: { action: Action; reason?: string }[] = [];
+  const results: CheckResult[] = [];
 
   // If no rule matches, still check redirects (they have their own path permissions)
   if (!rule) {
@@ -124,13 +96,7 @@ function checkSingleCommand(
     if (results.length === 0) {
       return { action: config.commands.default_action };
     }
-    let strictest = results[0].action;
-    const reasons: string[] = [];
-    for (const result of results) {
-      strictest = stricterAction(strictest, result.action);
-      if (result.reason) reasons.push(result.reason);
-    }
-    return { action: strictest, reason: reasons.join("; ") };
+    return aggregateResults(results);
   }
 
   // 1. Evaluate pre-checks
@@ -203,21 +169,7 @@ function checkSingleCommand(
     };
   }
 
-  // Return strictest result
-  let strictest = results[0].action;
-  const reasons: string[] = [];
-
-  for (const result of results) {
-    strictest = stricterAction(strictest, result.action);
-    if (result.reason) {
-      reasons.push(result.reason);
-    }
-  }
-
-  return {
-    action: strictest,
-    reason: reasons.length > 0 ? reasons.join("; ") : undefined,
-  };
+  return aggregateResults(results);
 }
 
 /**

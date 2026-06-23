@@ -84,9 +84,31 @@ export interface PermissionsConfig {
   write: PermissionSection;
 }
 
+/**
+ * A single parameter check inside a tool rule.
+ * `check` selects which permission domain to use:
+ *   - "read"  -> [permissions.read]
+ *   - "write" -> [permissions.write]
+ *   - "bash"  -> [commands]
+ */
+export interface ToolParamCheck {
+  param: string;
+  check: "read" | "write" | "bash";
+}
+
+/**
+ * Tool rules map a tool name to the parameter checks that should run.
+ * Exact tool-name matching via Map; later TOML rules overwrite earlier ones
+ * (last-match-wins).
+ */
+export interface ToolsConfig {
+  rules: Map<string, ToolParamCheck[]>;
+}
+
 export interface SanityConfig {
   permissions: PermissionsConfig;
   commands: CommandsConfig;
+  tools: ToolsConfig;
   ask_timeout?: number; // Timeout in seconds for "ask" prompts (default: 30)
 }
 
@@ -103,6 +125,9 @@ export function createEmptyConfig(): SanityConfig {
       default_action: "allow",
       reason: "Unknown commands default to allow (low-friction)",
       rules: [],
+    },
+    tools: {
+      rules: new Map(),
     },
   };
 }

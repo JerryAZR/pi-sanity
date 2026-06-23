@@ -10,7 +10,10 @@ export { loadConfig, loadConfigFromString, loadDefaultConfig } from "./config-lo
 export type { WarningSink } from "./config-loader.js";
 export { ConfigManager } from "./config-manager.js";
 export { createEmptyConfig } from "./config-types.js";
-export type { SanityConfig, Action, CommandConfig } from "./config-types.js";
+export type { SanityConfig, Action, CommandConfig, ToolParamCheck, ToolsConfig } from "./config-types.js";
+
+// Tool-call checking
+export { checkToolCall, buildToolDetails } from "./tool-checker.js";
 
 // High-level checkers
 export { checkRead } from "./checker-read.js";
